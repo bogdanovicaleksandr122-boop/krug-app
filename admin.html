@@ -32,6 +32,7 @@ body{
   font-feature-settings:"tnum" 1;
 }
 a{color:var(--ink);}
+button{color:inherit; -webkit-tap-highlight-color:transparent;}
 a:hover{color:var(--muted);}
 @media(prefers-reduced-motion: reduce){ *{transition:none !important; animation:none !important;} }
 ::-webkit-scrollbar{display:none;}
@@ -434,6 +435,11 @@ body{ background:var(--backdrop); }
       <div class="row-list" id="catalog-categories"></div>
       <div class="list-title" style="margin-top:26px;">ГОРОДА</div>
       <div class="row-list" id="catalog-cities"></div>
+      <div style="display:flex; gap:8px; margin-top:12px; flex-wrap:wrap;">
+        <input class="field-input" style="width:170px;" id="new-city-label" placeholder="Название города">
+        <input class="field-input" style="width:150px;" id="new-city-country" placeholder="Страна">
+        <button class="btn-tiny" onclick="createCity()">Добавить город</button>
+      </div>
     </div>
 
     <div class="admin-tab-content" id="tab-stats" style="display:none;">
@@ -979,6 +985,22 @@ function renderCatalogCities(){
       </div>
     </div>
   `).join('');
+}
+async function createCity(){
+  const label = document.getElementById('new-city-label').value.trim();
+  const country = document.getElementById('new-city-country').value.trim();
+  if(!label || !country){ showToast('Укажите город и страну'); return; }
+  try {
+    await apiRequest('/api/admin/cities', {method:'POST', headers: authHeaders({'Content-Type':'application/json'}), body: JSON.stringify({label, country})});
+    document.getElementById('new-city-label').value = '';
+    document.getElementById('new-city-country').value = '';
+    showToast('Город добавлен');
+    const cities = await apiRequest('/api/cities');
+    catalogCities = cities;
+    renderCatalogCities();
+  } catch(e) {
+    showToast('Не удалось добавить город: ' + e.message);
+  }
 }
 async function saveCity(id){
   const label = document.getElementById('city-label-'+id).value.trim();
