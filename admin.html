@@ -498,7 +498,9 @@ function mapApiSpecialist(s){
     },
     location: s.locationAddress ? {address: s.locationAddress} : null,
     catId: s.categoryId, subcatId: s.subcategoryId, cityId: s.cityId,
-    verified: !!s.verified
+    verified: !!s.verified,
+    pendingChanges: s.pendingChanges || null,
+    photoFileId: s.photoFileId || null
   };
 }
 function escapeAttr(str){
@@ -573,6 +575,48 @@ async function loadAdminPending(){
     sessionExpired();
   }
 }
+const FIELD_LABELS = {
+  name: 'Имя', langs: 'Языки', about: 'О себе', services: 'Услуги',
+  contactsTelegram: 'Telegram', contactsInstagram: 'Instagram', contactsPhone: 'Телефон', contactsWebsite: 'Сайт',
+  locationAddress: 'Адрес', cityId: 'Город', photoFileId: 'Фото',
+};
+function oldDiffValue(s, key){
+  if(key === 'langs') return (s.langs||[]).join(', ') || '—';
+  if(key === 'services') return (s.services||[]).join(', ') || '—';
+  if(key === 'name') return s.name || '—';
+  if(key === 'about') return s.about || '—';
+  if(key === 'contactsTelegram') return s.contacts.telegram || '—';
+  if(key === 'contactsInstagram') return s.contacts.instagram || '—';
+  if(key === 'contactsPhone') return s.contacts.phone || '—';
+  if(key === 'contactsWebsite') return s.contacts.website || '—';
+  if(key === 'locationAddress') return s.location ? s.location.address : '—';
+  if(key === 'cityId'){ const c = catalogCities.find(x => x.id === s.cityId); return c ? c.label : (s.cityId || '—'); }
+  if(key === 'photoFileId') return s.photoFileId ? '(текущее фото)' : '—';
+  return '—';
+}
+function newDiffValue(pc, key){
+  const v = pc[key];
+  if(key === 'langs' || key === 'services') return (v||[]).join(', ') || '—';
+  if(key === 'cityId'){ const c = catalogCities.find(x => x.id === v); return c ? c.label : (v || '—'); }
+  if(key === 'photoFileId') return v ? '(новое фото, см. превью ниже)' : '—';
+  return v || '—';
+}
+function pendingChangesHtml(s){
+  if(!s.pendingChanges) return '';
+  const keys = Object.keys(s.pendingChanges);
+  const rows = keys.filter(k => k !== 'photoFileId').map(k => `
+    <div class="admin-detail-row"><span>${FIELD_LABELS[k]||k}</span><span>«${oldDiffValue(s,k)}» → «${newDiffValue(s.pendingChanges,k)}»</span></div>
+  `).join('');
+  const photoRow = s.pendingChanges.photoFileId ? `
+    <div class="admin-detail-row"><span>Фото</span><span>Загружено новое — превью ниже</span></div>
+    <img data-pending-photo="${s.id}" style="max-width:110px; border-radius:14px; display:block; margin-top:8px;" alt="Фото на проверке">
+  ` : '';
+  return `
+    <div class="mini-badge on" style="margin-bottom:8px;">Правка анкеты</div>
+    ${rows}
+    ${photoRow}
+  `;
+}
 function adminCardHtml(s){
   const cat = catalogCategories.find(c => c.id === s.catId);
   const sub = cat ? (cat.subcategories||[]).find(x => x.id === s.subcatId) : null;
@@ -580,6 +624,7 @@ function adminCardHtml(s){
   const city = catalogCities.find(c => c.id === s.cityId);
   return `
   <div class="spec-card">
+    ${pendingChangesHtml(s)}
     <div class="admin-detail-row"><span>Категория</span><span>${cat ? cat.label : s.catId} → ${sub ? sub.label : s.subcatId}</span></div>
     <div class="admin-detail-row"><span>Имя</span><span>${s.name}</span></div>
     <div class="admin-detail-row"><span>Город</span><span>${city ? city.label : '—'}</span></div>
@@ -589,14 +634,26 @@ function adminCardHtml(s){
     <div class="admin-detail-row"><span>Адрес</span><span>${s.location ? s.location.address : 'Без адреса'}</span></div>
     <div class="admin-detail-row"><span>Заявлено «это я»</span><span>${s.verified ? 'Да, авто-подтверждено по Telegram' : 'Нет'}</span></div>
     <div class="admin-actions">
-      <button class="btn-reject" onclick="toggleRejectBox(${s.id})">Отклонить</button>
-      <button class="btn-approve" onclick="approveSubmission(${s.id})">Одобрить</button>
+      <button class="btn-reject" onclick="toggleRejectBox(${s.id})">${s.pendingChanges ? 'Отклонить правку' : 'Отклонить'}</button>
+      <button class="btn-approve" onclick="approveSubmission(${s.id})">${s.pendingChanges ? 'Принять правку' : 'Одобрить'}</button>
     </div>
     <div class="reject-box" id="reject-box-${s.id}" style="display:none;">
       <textarea class="field-input" id="reject-reason-${s.id}" placeholder="Причина отказа (покажем заявителю)" style="margin-top:10px; min-height:60px;"></textarea>
       <button class="btn-full" style="margin-top:8px;" onclick="confirmReject(${s.id})">Подтвердить отказ</button>
     </div>
   </div>`;
+}
+async function loadPendingPhotoPreviews(){
+  const imgs = document.querySelectorAll('img[data-pending-photo]');
+  for(const img of imgs){
+    const id = img.getAttribute('data-pending-photo');
+    try {
+      const res = await fetch(API_BASE + `/api/admin/specialists/${id}/pending-photo`, {headers: authHeaders()});
+      if(!res.ok) continue;
+      const blob = await res.blob();
+      img.src = URL.createObjectURL(blob);
+    } catch(e){ /* тихо игнорируем, картинка просто не покажется */ }
+  }
 }
 function renderAdminScreen(){
   document.getElementById('admin-items').innerHTML = adminPending.length
@@ -606,6 +663,7 @@ function renderAdminScreen(){
         <div class="empty-title">Нет заявок на проверке</div>
         <div class="empty-text">Новые анкеты появятся здесь сразу после отправки формы «Добавить специалиста».</div>
       </div>`;
+  loadPendingPhotoPreviews();
 }
 function toggleRejectBox(id){
   const box = document.getElementById('reject-box-' + id);
@@ -655,11 +713,13 @@ function renderAllSpecialists(){
   }
   el.innerHTML = allSpecialists.map(s => `
     <div class="admin-row">
+      ${s.photoFileId ? `<img src="${API_BASE}/api/specialists/${s.id}/photo" style="width:44px; height:44px; border-radius:50%; object-fit:cover; flex-shrink:0;" onerror="this.style.display='none'">` : ''}
       <div class="admin-row-main">
         <div class="admin-row-name">${s.name} <span style="font-weight:500; color:var(--muted);">· ${s.role}</span></div>
         <div class="admin-row-meta">${s.city ? s.city.label : 'Без города'} · ${s.category ? s.category.label : s.categoryId} → ${s.subcategory ? s.subcategory.label : s.subcategoryId}</div>
         <div class="admin-row-badges">
           <span class="mini-badge">${statusLabel(s.status)}</span>
+          ${s.pendingChanges ? `<span class="mini-badge on">Правка на проверке</span>` : ''}
           ${s.verified ? `<span class="mini-badge on">Подтверждён</span>` : ''}
           ${s.pro ? `<span class="mini-badge on">PRO</span>` : ''}
           ${s.boosted ? `<span class="mini-badge on">Буст</span>` : ''}
@@ -697,7 +757,16 @@ function closeEditModal(){
 }
 function editFormHtml(s){
   s = s || {};
+  const photoBlock = s.id ? `
+    <div class="field-label">ФОТО</div>
+    <div style="display:flex; align-items:center; gap:14px; margin-bottom:6px;">
+      <img id="ef-photo-preview" src="${API_BASE}/api/specialists/${s.id}/photo" style="width:56px; height:56px; border-radius:50%; object-fit:cover; background:var(--paper-soft);" onerror="this.style.visibility='hidden'">
+      <input type="file" accept="image/*" id="ef-photo-file">
+      <button class="btn-tiny" type="button" onclick="uploadAdminPhoto(${s.id})">Загрузить</button>
+    </div>
+  ` : `<div class="csv-help">Фото можно будет загрузить после того, как анкета будет сохранена.</div>`;
   return `
+    ${photoBlock}
     <div class="field-label">ИМЯ</div>
     <input class="field-input" id="ef-name" value="${escapeAttr(s.name)}">
     <div class="field-label">СПЕЦИАЛИЗАЦИЯ (ROLE)</div>
@@ -754,6 +823,26 @@ function fillCitySelect(selectedId){
   const sel = document.getElementById('ef-city');
   sel.innerHTML = '<option value="">Без города</option>' + catalogCities.map(c => `<option value="${c.id}" ${c.id===selectedId?'selected':''}>${c.label} (${c.country})</option>`).join('');
 }
+async function uploadAdminPhoto(id){
+  const input = document.getElementById('ef-photo-file');
+  if(!input.files.length){ showToast('Выберите файл'); return; }
+  const file = input.files[0];
+  try {
+    const bytes = await file.arrayBuffer();
+    const res = await fetch(API_BASE + `/api/admin/specialists/${id}/photo`, {
+      method: 'POST',
+      headers: authHeaders({'Content-Type': file.type || 'image/jpeg'}),
+      body: bytes
+    });
+    const data = await res.json();
+    if(!res.ok) throw new Error(data.error || 'Ошибка сервера');
+    document.getElementById('ef-photo-preview').src = API_BASE + `/api/specialists/${id}/photo?ts=` + Date.now();
+    document.getElementById('ef-photo-preview').style.visibility = 'visible';
+    showToast('Фото загружено');
+  } catch(e){
+    showToast('Не удалось загрузить фото: ' + e.message);
+  }
+}
 async function saveEditForm(){
   const payload = {
     name: document.getElementById('ef-name').value.trim(),
@@ -784,14 +873,17 @@ async function saveEditForm(){
         method:'PUT', headers: authHeaders({'Content-Type':'application/json'}), body: JSON.stringify(payload)
       });
       showToast('Анкета сохранена');
+      closeEditModal();
+      loadAllSpecialists();
     } else {
-      await apiRequest('/api/admin/specialists', {
+      const created = await apiRequest('/api/admin/specialists', {
         method:'POST', headers: authHeaders({'Content-Type':'application/json'}), body: JSON.stringify(payload)
       });
-      showToast('Анкета создана');
+      showToast('Анкета создана — теперь можно добавить фото');
+      await loadAllSpecialists();
+      if(!allSpecialists.find(x => x.id === created.id)) allSpecialists.push(created);
+      openEditModal(created.id);
     }
-    closeEditModal();
-    loadAllSpecialists();
   } catch(e) { showToast('Не удалось сохранить: ' + e.message); }
 }
 
