@@ -453,6 +453,12 @@ textarea.field-input{resize:vertical; min-height:80px; line-height:1.4;}
       <div class="form-row-label">Язык интерфейса</div>
       <div class="form-row-value"><span id="settings-lang-value">Русский</span> <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg></div>
     </div>
+
+    <div class="block-title" style="margin-top:32px;">О ПРИЛОЖЕНИИ</div>
+    <div class="form-row" onclick="openPrivacyPolicy()">
+      <div class="form-row-label">Политика конфиденциальности</div>
+      <div class="form-row-value"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg></div>
+    </div>
   </div>
 
   <!-- ================= PRO/BOOST PURCHASE SHEET ================= -->
@@ -1102,6 +1108,12 @@ function openLanguagePicker(){
     document.getElementById('settings-lang-value').textContent = APP_LANGUAGES.find(l => l.id === id).label;
     showToast(id === 'ru' ? 'Язык интерфейса: русский' : 'Мову інтерфейсу обрано: українська (переклад з’явиться пізніше)');
   });
+}
+// privacy.html лежит рядом с index.html в том же репозитории на GitHub Pages —
+// вычисляем адрес относительно текущей страницы, чтобы не зависеть от логина/домена.
+function openPrivacyPolicy(){
+  const url = location.href.replace(/[^/]*$/, 'privacy.html');
+  openExternalLink(url);
 }
 
 /* ---------- side menu ---------- */
