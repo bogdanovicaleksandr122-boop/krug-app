@@ -1,0 +1,1312 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>КРУГ — прототип</title>
+<style>
+  :root{
+    --ink:#0a0a0a;
+    --paper:#ffffff;
+    --paper-soft:#f6f6f4;
+    --line:#e7e7e4;
+    --muted:#84837e;
+    --backdrop:#e9e9e6;
+    --radius-lg:26px;
+    --radius-md:16px;
+    --shadow:0 18px 40px rgba(0,0,0,.10);
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0; padding:0; height:100%;}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif;
+    background:var(--backdrop); color:var(--ink);
+    display:flex; align-items:flex-start; justify-content:center;
+    min-height:100vh; padding:32px 12px;
+  }
+  @media(prefers-reduced-motion: reduce){ *{transition:none !important; animation:none !important;} }
+  ::-webkit-scrollbar{display:none;}
+
+  .shell{
+    position:relative; width:100%; max-width:410px; height:860px;
+    background:var(--paper); border-radius:var(--radius-lg); box-shadow:var(--shadow);
+    overflow:hidden; display:flex; flex-direction:column;
+  }
+  @media(max-width:460px){
+    body{padding:0;}
+    .shell{max-width:100%; height:100dvh; border-radius:0; box-shadow:none;}
+  }
+
+  .topbar{display:flex; align-items:center; justify-content:space-between; padding:18px 18px 6px; flex-shrink:0;}
+  .iconbtn{
+    width:38px; height:38px; border-radius:50%; border:1.5px solid var(--ink); background:var(--paper);
+    display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0;
+  }
+  .iconbtn svg{width:18px; height:18px;}
+  .city-pill{
+    display:flex; align-items:center; gap:6px; border:1.5px solid var(--ink); border-radius:999px;
+    padding:8px 13px; font-size:12px; font-weight:800; letter-spacing:.02em; cursor:pointer; background:var(--paper);
+  }
+  .city-pill svg{width:11px; height:11px;}
+  .step-label{font-size:11px; font-weight:800; letter-spacing:.06em; color:var(--muted);}
+
+  .screen{position:relative;}
+  .screen{position:absolute; inset:0; overflow-y:auto; -webkit-overflow-scrolling:touch; padding:8px 20px 28px; display:none; animation:fadeIn .18s ease;}
+  .screen.active{display:block;}
+  @keyframes fadeIn{from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);}}
+
+  .logo-badge{width:64px; height:64px; border-radius:50%; border:3px solid var(--ink); display:flex; align-items:center; justify-content:center; margin:14px auto 22px;}
+  .logo-badge span{font-weight:900; font-size:15px; letter-spacing:.02em;}
+  .headline{text-align:center; font-weight:900; font-size:26px; line-height:1.15; letter-spacing:-.01em; margin:0 0 18px;}
+
+  .search-wrap{display:flex; align-items:center; gap:10px; border:1.5px solid var(--ink); border-radius:999px; padding:12px 16px; margin-bottom:22px;}
+  .search-wrap input{border:none; outline:none; flex:1; font-size:14px; font-family:inherit; background:transparent;}
+  .search-wrap svg{width:17px; height:17px; flex-shrink:0;}
+
+  .section-label{font-size:11px; font-weight:800; letter-spacing:.08em; color:var(--muted); margin:0 0 12px;}
+
+  .cat-scroll{display:flex; gap:12px; overflow-x:auto; scroll-snap-type:x proximity; padding-bottom:4px; margin:0 -20px; padding-left:20px; padding-right:20px;}
+  .cat-chip{flex:0 0 auto; width:66px; display:flex; flex-direction:column; align-items:center; gap:7px; cursor:pointer; border:none; background:none; font-family:inherit; scroll-snap-align:start;}
+  .cat-circle{width:54px; height:54px; border-radius:50%; border:1.5px solid var(--ink); display:flex; align-items:center; justify-content:center; background:var(--paper); transition:background .15s ease, color .15s ease;}
+  .cat-circle svg{width:23px; height:23px;}
+  .cat-chip span{font-size:10.5px; font-weight:700; line-height:1.2; text-align:center;}
+  .cat-chip.active .cat-circle{background:var(--ink); color:var(--paper);}
+
+  .subcat-panel{max-height:0; overflow:hidden; transition:max-height .32s ease;}
+  .subcat-panel.open{max-height:420px;}
+  .subcat-inner{padding-top:18px;}
+  .subcat-panel-title{font-weight:900; font-size:15px; margin-bottom:12px;}
+  .subcat-chips{display:flex; flex-wrap:wrap; gap:8px;}
+  .subcat-chip{border:1.5px solid var(--line); border-radius:999px; padding:9px 14px; font-size:12.5px; font-weight:700; cursor:pointer; background:var(--paper); font-family:inherit;}
+  .subcat-chip:active{background:var(--paper-soft);}
+
+  .list-title{font-weight:900; font-size:19px; line-height:1.25; margin:6px 0 18px;}
+  .spec-card{border:1.5px solid var(--line); border-radius:var(--radius-md); padding:12px; margin-bottom:12px; background:var(--paper); position:relative;}
+  .spec-card-top{display:flex; align-items:center; gap:12px; cursor:pointer;}
+  .avatar{width:52px; height:52px; border-radius:50%; flex-shrink:0; background:var(--paper-soft); border:1.5px solid var(--line); display:flex; align-items:center; justify-content:center;}
+  .avatar svg{width:26px; height:26px;}
+  .spec-info{flex:1; min-width:0;}
+  .spec-name-row{display:flex; align-items:center; gap:6px; flex-wrap:wrap;}
+  .spec-name{font-weight:800; font-size:14.5px;}
+  .lang-tag{font-size:10px; font-weight:700; color:var(--muted); border:1px solid var(--line); border-radius:6px; padding:1px 5px;}
+  .spec-role{font-size:12.5px; color:var(--muted); margin-top:2px;}
+  .fav-btn{width:34px; height:34px; border-radius:50%; border:1.5px solid var(--line); background:var(--paper); display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0;}
+  .fav-btn svg{width:16px; height:16px;}
+  .fav-btn.active{border-color:var(--ink);}
+  .spec-services{font-size:11.5px; color:var(--muted); margin-top:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .contact-icons-row{display:flex; gap:6px; margin-top:9px;}
+  .contact-icon-mini{width:26px; height:26px; border-radius:50%; border:1.3px solid var(--line); display:flex; align-items:center; justify-content:center; color:var(--muted); flex-shrink:0;}
+  .contact-icon-mini svg{width:12px; height:12px;}
+
+  .empty-state{text-align:center; padding:36px 10px;}
+  .empty-icon{width:56px; height:56px; border-radius:50%; border:1.5px dashed var(--line); display:flex; align-items:center; justify-content:center; margin:0 auto 16px; color:var(--muted);}
+  .empty-icon svg{width:24px; height:24px;}
+  .empty-title{font-weight:800; font-size:15px; margin-bottom:6px;}
+  .empty-text{font-size:12.5px; color:var(--muted); line-height:1.5; max-width:240px; margin:0 auto;}
+
+  .avatar-wrap{position:relative; width:104px; margin:8px auto 14px;}
+  .profile-avatar{width:104px; height:104px; border-radius:50%; background:var(--paper-soft); border:1.5px solid var(--line); display:flex; align-items:center; justify-content:center;}
+  .profile-avatar svg{width:52px; height:52px;}
+  .profile-fav-btn{position:absolute; top:-2px; right:-6px; width:34px; height:34px; border-radius:50%; border:1.5px solid var(--line); background:var(--paper); display:flex; align-items:center; justify-content:center; cursor:pointer;}
+  .profile-fav-btn svg{width:16px; height:16px;}
+  .profile-fav-btn.active{border-color:var(--ink);}
+  .profile-name{text-align:center; font-weight:900; font-size:20px; margin-bottom:2px;}
+  .profile-role{text-align:center; color:var(--muted); font-size:13.5px; margin-bottom:22px;}
+  .block-title{font-weight:800; font-size:12px; letter-spacing:.06em; color:var(--muted); margin:22px 0 8px;}
+  .block-title:first-of-type{margin-top:0;}
+  .about-text{font-size:13.5px; line-height:1.55; color:#3a3a37;}
+  .service-row{display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid var(--line); font-size:13.5px;}
+  .service-row svg{width:16px; height:16px; flex-shrink:0;}
+
+  .contact-row{display:flex; align-items:center; gap:12px; padding:11px 0; border-bottom:1px solid var(--line);}
+  .contact-row.tappable{cursor:pointer;}
+  .contact-icon{width:36px; height:36px; border-radius:50%; border:1.5px solid var(--line); display:flex; align-items:center; justify-content:center; flex-shrink:0;}
+  .contact-icon svg{width:16px; height:16px;}
+  .contact-text-wrap{flex:1; min-width:0;}
+  .contact-label{font-weight:700; font-size:13px;}
+  .contact-value{font-size:12px; color:var(--muted); margin-top:1px;}
+  .contact-action{flex-shrink:0; padding:9px 13px; font-size:11.5px; font-weight:700; border-radius:999px; background:var(--ink); color:var(--paper); border:none; cursor:pointer; font-family:inherit; white-space:nowrap;}
+
+  .map-preview{height:120px; border-radius:var(--radius-md); background-image:repeating-linear-gradient(45deg,#f2f2ef,#f2f2ef 10px,#ebebe8 10px,#ebebe8 20px); border:1.5px solid var(--line); display:flex; align-items:center; justify-content:center; cursor:pointer; margin-bottom:8px; color:var(--ink);}
+  .map-preview svg{width:26px; height:26px;}
+  .location-address{font-size:12.5px; color:var(--muted);}
+
+  .verified-badge{display:inline-flex; align-items:center; gap:5px; font-size:11.5px; font-weight:800; border:1.3px solid var(--ink); border-radius:999px; padding:5px 11px;}
+  .verified-badge svg{width:12px; height:12px;}
+  .verified-badge.chip-fill{background:var(--ink); color:var(--paper);}
+  .badges-row{display:flex; align-items:center; justify-content:center; flex-wrap:wrap; gap:8px; margin:0 0 20px;}
+  .verified-mini{width:13px; height:13px; flex-shrink:0;}
+  .pro-chip{font-size:10px; font-weight:800; background:var(--ink); color:var(--paper); border-radius:6px; padding:1px 6px; line-height:1.5;}
+  .top-ribbon{position:absolute; top:12px; right:12px; background:var(--ink); color:var(--paper); font-size:10px; font-weight:800; padding:3px 9px; border-radius:6px; letter-spacing:.02em;}
+  .claim-block{text-align:center; margin:18px 0 4px;}
+  .claim-link{font-size:12.5px; font-weight:700; color:var(--muted); background:none; border:none; text-decoration:underline; cursor:pointer; font-family:inherit;}
+  .code-chip{display:block; text-align:center; font-size:20px; font-weight:900; letter-spacing:.06em; border:1.5px dashed var(--line); border-radius:var(--radius-md); padding:16px; margin:14px 0;}
+
+  .status-chip{display:inline-block; font-size:11px; font-weight:800; padding:4px 10px; border-radius:999px; border:1.3px solid var(--line); color:var(--muted);}
+  .status-chip.published{background:var(--ink); color:var(--paper); border-color:var(--ink);}
+  .status-chip.rejected{border-style:dashed;}
+  .cabinet-actions{display:flex; gap:8px; margin-top:12px; flex-wrap:wrap;}
+  .cabinet-actions .subcat-chip{flex:1; text-align:center;}
+
+  .admin-detail-row{font-size:12.5px; padding:7px 0; border-bottom:1px solid var(--line); display:flex; justify-content:space-between; gap:14px;}
+  .admin-detail-row span:first-child{color:var(--muted); flex-shrink:0;}
+  .admin-detail-row span:last-child{text-align:right;}
+  .admin-detail-row:last-of-type{border-bottom:none;}
+  .admin-actions{display:flex; gap:8px; margin-top:14px;}
+  .btn-reject{flex:1; background:var(--paper); color:var(--ink); border:1.5px solid var(--ink); border-radius:999px; padding:11px; font-size:12.5px; font-weight:800; cursor:pointer; font-family:inherit;}
+  .btn-approve{flex:1; background:var(--ink); color:var(--paper); border:none; border-radius:999px; padding:11px; font-size:12.5px; font-weight:800; cursor:pointer; font-family:inherit;}
+
+  .menu-divider{border-top:1px solid var(--line); margin-top:8px; padding-top:12px;}
+  .menu-divider-label{font-size:10px; font-weight:800; color:var(--muted); letter-spacing:.06em; margin-bottom:4px;}
+
+  .benefit-row{display:flex; align-items:center; gap:10px; padding:8px 0; font-size:13px;}
+  .benefit-row svg{width:15px; height:15px; flex-shrink:0;}
+  .price-row{display:flex; justify-content:space-between; align-items:center; padding:14px 0; border-top:1px solid var(--line); border-bottom:1px solid var(--line); margin:16px 0; font-weight:800; font-size:14px;}
+  .duration-row{display:flex; gap:8px; margin-bottom:16px;}
+  .duration-option{flex:1; border:1.5px solid var(--line); border-radius:12px; padding:12px; text-align:center; cursor:pointer;}
+  .duration-option.active{border-color:var(--ink); background:var(--paper-soft);}
+  .duration-option .d-label{font-weight:800; font-size:13px;}
+  .duration-option .d-price{font-size:11.5px; color:var(--muted); margin-top:2px;}
+
+  .cta-space{height:76px;}
+  .sticky-cta{position:absolute; left:0; right:0; bottom:0; padding:14px 20px calc(14px + env(safe-area-inset-bottom)); background:linear-gradient(to top, var(--paper) 70%, rgba(255,255,255,0));}
+  .btn-full{width:100%; background:var(--ink); color:var(--paper); border:none; border-radius:999px; padding:15px; font-size:13.5px; font-weight:800; cursor:pointer; font-family:inherit; display:flex; align-items:center; justify-content:center; gap:8px;}
+  .btn-full svg{width:16px; height:16px;}
+
+  .overlay{position:absolute; inset:0; background:rgba(0,0,0,.35); opacity:0; pointer-events:none; transition:opacity .2s ease; z-index:20;}
+  .overlay.open{opacity:1; pointer-events:auto;}
+  .side-menu{position:absolute; top:0; bottom:0; left:0; width:76%; max-width:280px; background:var(--paper); z-index:21; padding:22px 20px; transform:translateX(-100%); transition:transform .22s ease; display:flex; flex-direction:column; gap:2px;}
+  .side-menu.open{transform:translateX(0);}
+  .side-menu .logo-badge{margin:4px 0 22px;}
+  .menu-item{display:flex; align-items:center; gap:14px; padding:13px 4px; border-bottom:1px solid var(--line); font-weight:700; font-size:14px; cursor:pointer;}
+  .menu-item svg{width:19px; height:19px; flex-shrink:0;}
+
+  .sheet{position:absolute; left:0; right:0; bottom:0; max-height:72%; background:var(--paper); z-index:22; border-radius:24px 24px 0 0; padding:18px 20px calc(18px + env(safe-area-inset-bottom)); transform:translateY(100%); transition:transform .25s ease; overflow-y:auto;}
+  .sheet.open{transform:translateY(0);}
+  .sheet-header{display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;}
+  .sheet-title{font-weight:900; font-size:16px;}
+  .sheet-option{display:flex; align-items:center; justify-content:space-between; padding:14px 2px; border-bottom:1px solid var(--line); font-weight:700; font-size:14px; cursor:pointer;}
+  .sheet-option .check{width:16px; height:16px; opacity:0;}
+  .sheet-option.active .check{opacity:1;}
+
+  /* add-specialist form */
+  .progress-dots{display:flex; gap:6px; margin:4px 0 20px;}
+  .progress-dot{flex:1; height:4px; border-radius:999px; background:var(--line);}
+  .progress-dot.active{background:var(--ink);}
+  .form-row{display:flex; align-items:center; justify-content:space-between; padding:14px 2px; border-bottom:1px solid var(--line); cursor:pointer;}
+  .form-row.disabled{opacity:.4; cursor:default;}
+  .form-row-label{font-weight:700; font-size:13.5px;}
+  .form-row-value{display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--muted); font-weight:700;}
+  .form-row-value svg{width:14px; height:14px;}
+  .field-label{font-weight:800; font-size:11.5px; letter-spacing:.05em; color:var(--muted); margin:22px 0 8px;}
+  .field-label:first-of-type{margin-top:4px;}
+  .field-input{width:100%; border:1.5px solid var(--line); border-radius:12px; padding:12px 14px; font-size:14px; font-family:inherit; outline:none; background:var(--paper); color:var(--ink);}
+  .field-input:focus{border-color:var(--ink);}
+  textarea.field-input{resize:vertical; min-height:80px; line-height:1.4;}
+  .chip-toggle-row{display:flex; gap:8px; flex-wrap:wrap;}
+  .chip-toggle{border:1.5px solid var(--line); border-radius:999px; padding:9px 16px; font-size:13px; font-weight:700; cursor:pointer; background:var(--paper); font-family:inherit;}
+  .chip-toggle.active{background:var(--ink); color:var(--paper); border-color:var(--ink);}
+  .service-input-row{display:flex; gap:8px; margin-bottom:8px; align-items:center;}
+  .service-input-row .field-input{flex:1;}
+  .remove-btn{width:32px; height:32px; border-radius:50%; border:1.5px solid var(--line); background:var(--paper); display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0;}
+  .remove-btn svg{width:14px; height:14px;}
+  .add-link-btn{font-weight:700; font-size:13px; color:var(--ink); background:none; border:none; padding:8px 0; cursor:pointer; display:flex; align-items:center; gap:6px; font-family:inherit;}
+  .add-link-btn svg{width:15px; height:15px;}
+  .toggle-row{display:flex; align-items:center; justify-content:space-between; gap:14px; padding:6px 0 16px;}
+  .toggle-switch{width:46px; height:26px; border-radius:999px; background:var(--line); position:relative; cursor:pointer; flex-shrink:0; transition:background .15s ease;}
+  .toggle-switch.on{background:var(--ink);}
+  .toggle-knob{position:absolute; top:2px; left:2px; width:22px; height:22px; border-radius:50%; background:var(--paper); transition:left .15s ease; box-shadow:0 1px 3px rgba(0,0,0,.2);}
+  .toggle-switch.on .toggle-knob{left:22px;}
+  .review-block{border:1.5px solid var(--line); border-radius:var(--radius-md); padding:6px 16px; margin-bottom:14px;}
+  .review-row{display:flex; justify-content:space-between; gap:10px; padding:10px 0; border-bottom:1px solid var(--line); font-size:12.5px;}
+  .review-row:last-child{border-bottom:none;}
+  .review-row-label{color:var(--muted); flex-shrink:0;}
+  .review-row-value{font-weight:700; text-align:right;}
+  .note-text{font-size:12px; color:var(--muted); line-height:1.5;}
+  .success-wrap{text-align:center; padding:70px 10px 20px;}
+  .success-icon{width:72px; height:72px; border-radius:50%; border:2px solid var(--ink); display:flex; align-items:center; justify-content:center; margin:0 auto 20px;}
+  .success-icon svg{width:32px; height:32px;}
+  .success-title{font-weight:900; font-size:18px; margin-bottom:8px;}
+  .success-text{font-size:13px; color:var(--muted); line-height:1.5; max-width:260px; margin:0 auto;}
+
+  .toast{position:absolute; left:50%; bottom:26px; transform:translate(-50%,12px); background:var(--ink); color:var(--paper); padding:11px 18px; border-radius:999px; font-size:12.5px; font-weight:700; opacity:0; pointer-events:none; transition:all .25s ease; z-index:30; white-space:nowrap; max-width:88%; text-align:center;}
+  .toast.show{opacity:1; transform:translate(-50%,0);}
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+  <!-- ================= HOME ================= -->
+  <div class="screen active" id="screen-home">
+    <div class="topbar">
+      <div class="iconbtn" onclick="openMenu()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </div>
+      <div class="city-pill" onclick="openCityModal()">
+        <span id="city-label">СОФИЯ</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+    </div>
+
+    <div class="logo-badge"><span>КРУГ</span></div>
+    <div class="headline">УСЛУГИ ДЛЯ СВОИХ.<br>ЗА ГРАНИЦЕЙ.</div>
+
+    <div class="search-wrap">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" placeholder="Поиск услуг (например, «врач», «ремонт»)">
+    </div>
+
+    <div class="section-label">КАТЕГОРИИ</div>
+    <div class="cat-scroll" id="cat-scroll"></div>
+
+    <div class="subcat-panel" id="subcat-panel">
+      <div class="subcat-inner" id="subcat-inner"></div>
+    </div>
+  </div>
+
+  <!-- ================= LIST ================= -->
+  <div class="screen" id="screen-list">
+    <div class="topbar">
+      <div class="iconbtn" onclick="goHome()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      </div>
+      <div class="iconbtn" onclick="openMenu()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </div>
+    </div>
+    <div class="list-title" id="list-title">—</div>
+    <div id="list-items"></div>
+  </div>
+
+  <!-- ================= FAVORITES ================= -->
+  <div class="screen" id="screen-favorites">
+    <div class="topbar">
+      <div class="iconbtn" onclick="goHome()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      </div>
+      <div class="iconbtn" onclick="openMenu()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </div>
+    </div>
+    <div class="list-title">ИЗБРАННОЕ</div>
+    <div id="favorites-items"></div>
+  </div>
+
+  <!-- ================= ADD SPECIALIST ================= -->
+  <div class="screen" id="screen-add">
+    <div class="topbar">
+      <div class="iconbtn" onclick="backAddStep()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      </div>
+      <div class="step-label" id="add-step-label">ШАГ 1 ИЗ 5</div>
+    </div>
+    <div class="progress-dots" id="add-progress"></div>
+    <div id="add-step-content"></div>
+    <div class="cta-space"></div>
+  </div>
+  <div class="sticky-cta" id="add-cta" style="display:none;">
+    <div id="add-bottom-bar"></div>
+  </div>
+
+  <!-- ================= MY SERVICES (CABINET) ================= -->
+  <div class="screen" id="screen-cabinet">
+    <div class="topbar">
+      <div class="iconbtn" onclick="goHome()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      </div>
+      <div class="iconbtn" onclick="openMenu()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </div>
+    </div>
+    <div class="list-title">МОИ УСЛУГИ</div>
+    <div id="cabinet-items"></div>
+  </div>
+
+  <!-- ================= ADMIN PANEL ================= -->
+  <div class="screen" id="screen-admin">
+    <div class="topbar">
+      <div class="iconbtn" onclick="goHome()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      </div>
+      <div class="iconbtn" onclick="openMenu()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </div>
+    </div>
+    <div class="list-title">ЗАЯВКИ НА ПРОВЕРКЕ</div>
+    <div id="admin-items"></div>
+  </div>
+
+  <!-- ================= PRO/BOOST PURCHASE SHEET ================= -->
+  <div class="overlay" id="moneyOverlay" onclick="closeMoneySheet()"></div>
+  <div class="sheet" id="moneySheet">
+    <div class="sheet-header">
+      <div class="sheet-title" id="money-title">—</div>
+      <div class="iconbtn" onclick="closeMoneySheet()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </div>
+    </div>
+    <div id="money-content"></div>
+  </div>
+
+  <!-- ================= PROFILE ================= -->
+  <div class="screen" id="screen-profile">
+    <div class="topbar">
+      <div class="iconbtn" onclick="goBackFromProfile()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      </div>
+      <div class="iconbtn" onclick="openMenu()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </div>
+    </div>
+
+    <div class="avatar-wrap">
+      <div class="profile-avatar"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg></div>
+      <button class="profile-fav-btn" id="profile-fav-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 00-7.8 0L12 5.6l-1-1a5.5 5.5 0 10-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 000-7.8z"/></svg></button>
+    </div>
+    <div class="profile-name" id="p-name">—</div>
+    <div class="profile-role" id="p-role">—</div>
+    <div id="p-verified"></div>
+
+    <div class="block-title">ОБО МНЕ</div>
+    <div class="about-text" id="p-about">—</div>
+
+    <div class="block-title">УСЛУГИ</div>
+    <div id="tab-services"></div>
+
+    <div class="block-title">КОНТАКТЫ</div>
+    <div id="p-contacts"></div>
+
+    <div id="p-location"></div>
+    <div id="p-claim"></div>
+
+    <div class="cta-space"></div>
+  </div>
+
+  <div class="sticky-cta" id="profile-cta" style="display:none;">
+    <button class="btn-full" id="profile-cta-btn">
+      <svg id="cta-icon" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></svg>
+      <span id="cta-label"></span>
+    </button>
+  </div>
+
+  <!-- ================= SIDE MENU ================= -->
+  <div class="overlay" id="overlay" onclick="closeMenu()"></div>
+  <div class="side-menu" id="sideMenu">
+    <div class="logo-badge"><span>КРУГ</span></div>
+    <div class="menu-item" onclick="goHome(); closeMenu();">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>Главная
+    </div>
+    <div class="menu-item" onclick="openFavorites();">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.8 4.6a5.5 5.5 0 00-7.8 0L12 5.6l-1-1a5.5 5.5 0 10-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 000-7.8z"/></svg>Избранное
+    </div>
+    <div class="menu-item" onclick="openCabinet();">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>Мои услуги
+    </div>
+    <div class="menu-item" onclick="openAddForm();">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>Добавить специалиста
+    </div>
+    <div class="menu-item" onclick="showToast('Раздел в разработке'); closeMenu();">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 115 .5c0 1.5-2.5 1.5-2.5 3.5"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Поддержка
+    </div>
+    <div class="menu-item" onclick="showToast('Раздел в разработке'); closeMenu();">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09a1.65 1.65 0 00-1-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>Настройки
+    </div>
+    <div class="menu-divider">
+      <div class="menu-divider-label">ДЛЯ ВЛАДЕЛЬЦА (ВРЕМЕННО ЗДЕСЬ)</div>
+      <div class="menu-item" style="border-bottom:none;" onclick="openAdmin();">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>Админ-панель
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= REUSABLE PICKER SHEET ================= -->
+  <div class="overlay" id="pickerOverlay" onclick="closePicker()"></div>
+  <div class="sheet" id="pickerSheet">
+    <div class="sheet-header">
+      <div class="sheet-title" id="picker-title">—</div>
+      <div class="iconbtn" onclick="closePicker()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </div>
+    </div>
+    <div id="picker-list"></div>
+  </div>
+
+  <!-- ================= CLAIM OWNERSHIP SHEET ================= -->
+  <div class="overlay" id="claimOverlay" onclick="closeClaimSheet()"></div>
+  <div class="sheet" id="claimSheet">
+    <div class="sheet-header">
+      <div class="sheet-title">Подтвердить анкету</div>
+      <div class="iconbtn" onclick="closeClaimSheet()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </div>
+    </div>
+    <div id="claim-content"></div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+/* ---------- icon paths ---------- */
+const STAR = '<path d="M12 2l2.9 6.6L22 9.3l-5 4.9 1.3 7-6.3-3.5L5.7 21.2 7 14.2l-5-4.9 7.1-.7z"/>';
+const CHECK = '<path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>';
+const GEAR = '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09a1.65 1.65 0 00-1-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>';
+const HEART = '<path d="M20.8 4.6a5.5 5.5 0 00-7.8 0L12 5.6l-1-1a5.5 5.5 0 10-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 000-7.8z"/>';
+
+const ICONS = {
+  home:'<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/>',
+  sparkle: STAR,
+  gear: GEAR,
+  doc:'<rect x="5" y="3" width="14" height="18" rx="2"/><line x1="8" y1="8" x2="16" y2="8"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="16" x2="12" y2="16"/>',
+  cap:'<path d="M12 3l10 5-10 5L2 8z"/><path d="M6 11v4c0 1.5 3 3 6 3s6-1.5 6-3v-4"/>',
+  cup:'<path d="M5 8h11v7a4 4 0 01-4 4H9a4 4 0 01-4-4z"/><path d="M16 9h2a2 2 0 010 4h-2"/><line x1="7" y1="2" x2="7" y2="5"/><line x1="10" y1="2" x2="10" y2="5"/>',
+  car:'<path d="M4 16V9l2-4h12l2 4v7"/><circle cx="7.5" cy="16.5" r="1.5"/><circle cx="16.5" cy="16.5" r="1.5"/><path d="M4 13h16"/>',
+  box:'<path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><line x1="12" y1="13" x2="12" y2="21"/>',
+  users:'<circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.5 2.5-6 6-6s6 2.5 6 6"/><circle cx="17" cy="8" r="2.4"/><path d="M15.5 14c2.7.3 4.5 2.6 4.5 6"/>',
+  dumbbell:'<rect x="2" y="9" width="3" height="6" rx="1"/><rect x="19" y="9" width="3" height="6" rx="1"/><line x1="7" y1="12" x2="17" y2="12"/><rect x="5" y="7" width="2" height="10" rx="1"/><rect x="17" y="7" width="2" height="10" rx="1"/>',
+  smiley:'<circle cx="12" cy="12" r="9"/><circle cx="9" cy="10" r="1"/><circle cx="15" cy="10" r="1"/><path d="M8 14c1 1.5 2.5 2 4 2s3-.5 4-2"/>',
+  paw:'<circle cx="7" cy="8" r="2"/><circle cx="12" cy="6" r="2"/><circle cx="17" cy="8" r="2"/><path d="M12 12c-3.5 0-6 2-6 5a2.5 2.5 0 004.5 1.5c.4-.5 1-.9 1.5-.9s1.1.4 1.5.9A2.5 2.5 0 0018 17c0-3-2.5-5-6-5z"/>',
+  building:'<rect x="4" y="3" width="16" height="18" rx="1"/><line x1="8" y1="7" x2="8" y2="7.01"/><line x1="12" y1="7" x2="12" y2="7.01"/><line x1="16" y1="7" x2="16" y2="7.01"/><line x1="8" y1="11" x2="8" y2="11.01"/><line x1="12" y1="11" x2="12" y2="11.01"/><line x1="16" y1="11" x2="16" y2="11.01"/><line x1="9" y1="21" x2="9" y2="17"/><line x1="15" y1="21" x2="15" y2="17"/>',
+  briefcase:'<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2"/>',
+  gift:'<rect x="3" y="8" width="18" height="13" rx="1"/><path d="M3 8h18"/><path d="M12 8v13"/><path d="M12 8c-1.5-4-6-4-6-1 0 1.5 2 1.5 6 1z"/><path d="M12 8c1.5-4 6-4 6-1 0 1.5-2 1.5-6 1z"/>',
+  heart: HEART,
+  pin:'<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/>',
+  telegram:'<path d="M21.9 2.6 2.7 10.1c-1.2.5-1.2 1.2-.2 1.5l4.9 1.5 1.9 5.8c.2.6.4.9.9.9.4 0 .6-.2.9-.5l2.1-2 4.3 3.2c.8.4 1.3.2 1.5-.7l2.8-13.3c.3-1.2-.4-1.7-1.2-1.3z"/>',
+  instagram:'<rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.3" cy="6.7" r="1"/>',
+  phone:'<path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6A19.79 19.79 0 012.12 4.18 2 2 0 014.11 2h3a2 2 0 012 1.72c.13.96.36 1.9.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0122 16.92z"/>',
+  globe:'<circle cx="12" cy="12" r="9"/><line x1="3" y1="12" x2="21" y2="12"/><path d="M12 3c2.5 2.6 4 6 4 9s-1.5 6.4-4 9c-2.5-2.6-4-6-4-9s1.5-6.4 4-9z"/>',
+  chevronRight:'<polyline points="9 6 15 12 9 18"/>',
+  plus:'<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',
+  xmark:'<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>'
+};
+
+/* ---------- data (загружается с сервера) ---------- */
+const API_BASE = 'https://krug-backend-production.up.railway.app';
+
+let CITIES = [];
+let CATEGORIES = [];
+let SPECIALISTS = {};
+let ALL_SPECIALISTS = {};
+let adminToken = null;
+
+async function apiRequest(path, options){
+  const res = await fetch(API_BASE + path, options || {});
+  if(!res.ok){
+    let err = {};
+    try { err = await res.json(); } catch(e){}
+    throw new Error(err.error || ('Ошибка сервера: ' + path));
+  }
+  if(res.status === 204) return null;
+  return res.json();
+}
+
+// Приводим данные специалиста от сервера к тому виду, который ждёт остальной код прототипа
+function mapApiSpecialist(s){
+  return {
+    id: s.id,
+    name: s.name,
+    langs: s.langs || [],
+    role: s.role,
+    about: s.about,
+    services: s.services || [],
+    contacts: {
+      telegram: s.contactsTelegram || undefined,
+      instagram: s.contactsInstagram || undefined,
+      phone: s.contactsPhone || undefined,
+      website: s.contactsWebsite || undefined
+    },
+    location: s.locationAddress ? {address: s.locationAddress} : null,
+    catId: s.categoryId,
+    subcatId: s.subcategoryId,
+    cityId: s.cityId,
+    status: s.status,
+    rejectionReason: s.rejectionReason,
+    verified: !!s.verified,
+    pro: !!s.pro,
+    boosted: !!s.boosted
+  };
+}
+
+function mapApiCategory(c){
+  return {
+    id: c.id, label: c.label, icon: c.icon,
+    subcats: (c.subcategories || []).map(sc => ({id: sc.id, label: sc.label}))
+  };
+}
+
+// Загружает категории/города/специалистов с сервера один раз при открытии приложения
+async function loadPublicData(){
+  const [categories, cities, specialists] = await Promise.all([
+    apiRequest('/api/categories'),
+    apiRequest('/api/cities'),
+    apiRequest('/api/specialists')
+  ]);
+
+  CATEGORIES = categories.map(mapApiCategory);
+  CITIES = cities.map(c => ({id: c.id, label: c.label}));
+
+  SPECIALISTS = {};
+  ALL_SPECIALISTS = {};
+  specialists.map(mapApiSpecialist).forEach(s => {
+    if(!SPECIALISTS[s.subcatId]) SPECIALISTS[s.subcatId] = [];
+    SPECIALISTS[s.subcatId].push(s);
+    ALL_SPECIALISTS[s.id] = s;
+  });
+}
+
+const CONTACT_ORDER = ['telegram','phone','instagram','website'];
+const CONTACT_LABELS = {telegram:'Telegram', phone:'Телефон', instagram:'Instagram', website:'Сайт'};
+
+/* ---------- state ---------- */
+let currentCity = 'sofia';
+let openCategoryId = null;
+let favorites = new Set();
+let profileReturnScreen = 'list';
+let currentProfileId = null;
+let lastListSpecs = [];
+let lastListReturnTo = 'list';
+let pickerOnSelect = null;
+let addForm = null;
+let nextSubmissionId = 200;
+let MY_LISTING_IDS = new Set();
+let moneySpecId = null;
+let moneyType = null;
+let selectedBoostDays = 7;
+const PRO_PRICE = 500;
+const BOOST_PRICES = {7:200, 30:600};
+
+/* ---------- helpers ---------- */
+function cityLabel(){ return CITIES.find(c => c.id === currentCity).label; }
+function isCityAvailable(){ return currentCity === 'sofia'; }
+function escapeAttr(str){ return (str || '').replace(/"/g, '&quot;'); }
+function chevronRight(){ return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${ICONS.chevronRight}</svg>`; }
+function sortForDisplay(specs){
+  const boosted = specs.filter(s => s.boosted);
+  const pro = specs.filter(s => !s.boosted && s.pro);
+  const rest = specs.filter(s => !s.boosted && !s.pro);
+  for(let i = boosted.length - 1; i > 0; i--){
+    const j = Math.floor(Math.random() * (i + 1));
+    [boosted[i], boosted[j]] = [boosted[j], boosted[i]];
+  }
+  return [...boosted, ...pro, ...rest];
+}
+
+/* ---------- categories on home ---------- */
+function renderCategoryScroll(){
+  document.getElementById('cat-scroll').innerHTML = CATEGORIES.map(c => `
+    <button class="cat-chip ${c.id === openCategoryId ? 'active' : ''}" onclick="toggleCategory('${c.id}')">
+      <div class="cat-circle"><svg viewBox="0 0 24 24" fill="${c.icon==='sparkle'?'currentColor':'none'}" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${ICONS[c.icon]}</svg></div>
+      <span>${c.label}</span>
+    </button>
+  `).join('');
+}
+function toggleCategory(id){
+  openCategoryId = (openCategoryId === id) ? null : id;
+  renderCategoryScroll();
+  renderSubcatPanel();
+}
+function renderSubcatPanel(){
+  const panel = document.getElementById('subcat-panel');
+  const inner = document.getElementById('subcat-inner');
+  if(!openCategoryId){ panel.classList.remove('open'); inner.innerHTML=''; return; }
+  const cat = CATEGORIES.find(c => c.id === openCategoryId);
+  inner.innerHTML = `
+    <div class="subcat-panel-title">${cat.label}</div>
+    <div class="subcat-chips">
+      ${cat.subcats.map(s => `<button class="subcat-chip" onclick="openSubcategory('${cat.id}','${s.id}')">${s.label}</button>`).join('')}
+    </div>`;
+  panel.classList.add('open');
+}
+
+/* ---------- list ---------- */
+function openSubcategory(catId, subId){
+  const cat = CATEGORIES.find(c => c.id === catId);
+  const sub = cat.subcats.find(s => s.id === subId);
+  document.getElementById('list-title').textContent = sub.label.toUpperCase() + ', ' + cityLabel().toUpperCase();
+  const specs = isCityAvailable() ? sortForDisplay(SPECIALISTS[subId] || []) : [];
+  renderList(specs, 'list');
+  showScreen('list');
+}
+function renderList(specs, returnTo){
+  lastListSpecs = specs; lastListReturnTo = returnTo;
+  document.getElementById('list-items').innerHTML = specs.length
+    ? specs.map(s => renderSpecialistCard(s, returnTo)).join('')
+    : emptyStateHtml();
+}
+function renderCurrentList(){ renderList(lastListSpecs, lastListReturnTo); }
+function emptyStateHtml(){
+  const text = !isCityAvailable()
+    ? 'Мы начинаем с Софии и скоро добавим другие города.'
+    : 'Станьте первым, кто добавит здесь услугу.';
+  return `<div class="empty-state">
+    <div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">${ICONS.gift}</svg></div>
+    <div class="empty-title">Пока нет специалистов</div>
+    <div class="empty-text">${text}</div>
+    <button class="btn-full" style="margin-top:16px;" onclick="openAddForm()">Добавить специалиста</button>
+  </div>`;
+}
+function renderSpecialistCard(spec, returnTo){
+  const isFav = favorites.has(spec.id);
+  const servicesPreview = spec.services.slice(0,2).join(' · ');
+  const contactTypes = CONTACT_ORDER.filter(t => spec.contacts[t]);
+  return `
+  <div class="spec-card">
+    ${spec.boosted ? `<div class="top-ribbon">ТОП</div>` : ''}
+    <div class="spec-card-top" onclick="openProfileById(${spec.id}, '${returnTo}')">
+      <div class="avatar"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg></div>
+      <div class="spec-info">
+        <div class="spec-name-row">
+          <span class="spec-name">${spec.name}</span>
+          ${spec.langs.map(l => `<span class="lang-tag">${l}</span>`).join('')}
+          ${spec.verified ? `<svg class="verified-mini" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">${CHECK}</svg>` : ''}
+          ${spec.pro ? `<span class="pro-chip">PRO</span>` : ''}
+        </div>
+        <div class="spec-role">${spec.role}</div>
+        <div class="spec-services">${servicesPreview}</div>
+        <div class="contact-icons-row">
+          ${contactTypes.map(t => `<div class="contact-icon-mini"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ICONS[t]}</svg></div>`).join('')}
+        </div>
+      </div>
+      <button class="fav-btn ${isFav ? 'active' : ''}" onclick="event.stopPropagation(); toggleFavorite(${spec.id})">
+        <svg viewBox="0 0 24 24" fill="${isFav ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ICONS.heart}</svg>
+      </button>
+    </div>
+  </div>`;
+}
+
+/* ---------- favorites ---------- */
+function openFavorites(){ renderFavoritesScreen(); showScreen('favorites'); closeMenu(); }
+function renderFavoritesScreen(){
+  const specs = Array.from(favorites).map(id => ALL_SPECIALISTS[id]).filter(Boolean);
+  document.getElementById('favorites-items').innerHTML = specs.length
+    ? specs.map(s => renderSpecialistCard(s, 'favorites')).join('')
+    : `<div class="empty-state">
+        <div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">${ICONS.heart}</svg></div>
+        <div class="empty-title">Пока нет избранного</div>
+        <div class="empty-text">Нажимайте на сердечко у специалиста, чтобы сохранить его здесь.</div>
+      </div>`;
+}
+function toggleFavorite(id){
+  if(favorites.has(id)) favorites.delete(id); else favorites.add(id);
+  if(document.getElementById('screen-list').classList.contains('active')) renderCurrentList();
+  if(document.getElementById('screen-favorites').classList.contains('active')) renderFavoritesScreen();
+  if(currentProfileId === id) setProfileFavButton(id);
+}
+
+/* ---------- profile ---------- */
+function openProfileById(id, returnTo){
+  const s = ALL_SPECIALISTS[id];
+  if(!s) return;
+  profileReturnScreen = returnTo || 'list';
+  fillProfile(s);
+  showScreen('profile');
+}
+function goBackFromProfile(){ showScreen(profileReturnScreen); }
+function fillProfile(spec){
+  currentProfileId = spec.id;
+  document.getElementById('p-name').textContent = spec.name + ' (' + spec.langs.join('/') + ')';
+  document.getElementById('p-role').textContent = spec.role;
+  document.getElementById('p-verified').innerHTML = renderProfileBadges(spec);
+  document.getElementById('p-about').textContent = spec.about;
+  document.getElementById('tab-services').innerHTML = spec.services.map(item => `
+    <div class="service-row"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${CHECK}</svg>${item}</div>
+  `).join('');
+  document.getElementById('p-contacts').innerHTML = renderContactsBlock(spec);
+  document.getElementById('p-location').innerHTML = locationBlockHtml(spec);
+  document.getElementById('p-claim').innerHTML = spec.verified ? '' : `
+    <div class="claim-block"><button class="claim-link" onclick="openClaimSheet(${spec.id})">Это ваша анкета? Подтвердить</button></div>
+  `;
+  setProfileFavButton(spec.id);
+  updateStickyCta(spec);
+}
+function renderProfileBadges(spec){
+  const chips = [];
+  if(spec.verified) chips.push(`<div class="verified-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">${CHECK}</svg>Подтверждено специалистом</div>`);
+  if(spec.pro) chips.push(`<div class="verified-badge chip-fill">PRO-специалист</div>`);
+  if(spec.boosted) chips.push(`<div class="verified-badge chip-fill">⚡ Продвигается сейчас</div>`);
+  return chips.length ? `<div class="badges-row">${chips.join('')}</div>` : '';
+}
+function renderContactsBlock(spec){
+  return CONTACT_ORDER.filter(t => spec.contacts[t]).map(t => {
+    const isTg = t === 'telegram';
+    return `
+    <div class="contact-row ${isTg ? '' : 'tappable'}" ${isTg ? '' : `onclick="showToast('Демо: откроется ${CONTACT_LABELS[t]}')"`}>
+      <div class="contact-icon"><svg viewBox="0 0 24 24" fill="${isTg ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${ICONS[t]}</svg></div>
+      <div class="contact-text-wrap"><div class="contact-label">${CONTACT_LABELS[t]}</div><div class="contact-value">${spec.contacts[t]}</div></div>
+      ${isTg ? `<button class="contact-action" onclick="showToast('Демо: откроется Telegram')">Написать в Telegram</button>` : ''}
+    </div>`;
+  }).join('');
+}
+function locationBlockHtml(spec){
+  if(!spec.location) return '';
+  return `
+    <div class="block-title">МЕСТОПОЛОЖЕНИЕ</div>
+    <div class="map-preview" onclick="showToast('Демо: откроется карта')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${ICONS.pin}</svg>
+    </div>
+    <div class="location-address">${spec.location.address}</div>`;
+}
+function setProfileFavButton(id){
+  const btn = document.getElementById('profile-fav-btn');
+  const isFav = favorites.has(id);
+  btn.classList.toggle('active', isFav);
+  btn.querySelector('svg').setAttribute('fill', isFav ? 'currentColor' : 'none');
+  btn.onclick = () => toggleFavorite(id);
+}
+function updateStickyCta(spec){
+  const cta = document.getElementById('profile-cta');
+  if(!spec.contacts.telegram){ cta.style.display = 'none'; return; }
+  document.getElementById('cta-label').textContent = 'НАПИСАТЬ В TELEGRAM';
+  document.getElementById('cta-icon').setAttribute('fill', 'currentColor');
+  document.getElementById('cta-icon').innerHTML = ICONS.telegram;
+  document.getElementById('profile-cta-btn').onclick = () => showToast('Демо: откроется Telegram');
+  cta.style.display = 'block';
+}
+
+/* ---------- navigation ---------- */
+function showScreen(name){
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + name).classList.add('active');
+  document.getElementById('profile-cta').style.display = (name === 'profile') ? document.getElementById('profile-cta').style.display : 'none';
+  document.getElementById('add-cta').style.display = (name === 'add') ? 'block' : 'none';
+}
+function goHome(){ showScreen('home'); }
+
+/* ---------- side menu ---------- */
+function openMenu(){ document.getElementById('sideMenu').classList.add('open'); document.getElementById('overlay').classList.add('open'); }
+function closeMenu(){ document.getElementById('sideMenu').classList.remove('open'); document.getElementById('overlay').classList.remove('open'); }
+
+/* ---------- reusable picker sheet ---------- */
+function openPicker(title, options, activeId, onSelect){
+  document.getElementById('picker-title').textContent = title;
+  pickerOnSelect = onSelect;
+  document.getElementById('picker-list').innerHTML = options.map(o => `
+    <div class="sheet-option ${o.id === activeId ? 'active' : ''}" onclick="selectPickerOption('${o.id}')">
+      ${o.label}
+      <svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+    </div>
+  `).join('');
+  document.getElementById('pickerSheet').classList.add('open');
+  document.getElementById('pickerOverlay').classList.add('open');
+}
+function closePicker(){ document.getElementById('pickerSheet').classList.remove('open'); document.getElementById('pickerOverlay').classList.remove('open'); }
+function selectPickerOption(id){ closePicker(); if(pickerOnSelect) pickerOnSelect(id); }
+
+function openCityModal(){
+  openPicker('Город (Болгария)', CITIES, currentCity, (id) => {
+    currentCity = id;
+    document.getElementById('city-label').textContent = cityLabel().toUpperCase();
+    showToast(id === 'sofia' ? 'Показаны специалисты в Софии' : 'Пока показываем демо только для Софии — этот город скоро добавим');
+  });
+}
+
+/* ---------- claim ownership ---------- */
+let claimSpecId = null;
+function openClaimSheet(id){
+  claimSpecId = id;
+  const spec = ALL_SPECIALISTS[id];
+  const content = document.getElementById('claim-content');
+  if(spec.contacts.telegram){
+    content.innerHTML = `
+      <div class="note-text">Мы сверяем это автоматически по вашему Telegram-аккаунту в этом чате — если анкета действительно ваша, подтверждение произойдёт мгновенно, без лишних шагов.</div>
+      <div class="field-label">TELEGRAM В АНКЕТЕ</div>
+      <div class="form-row" style="cursor:default;"><div class="form-row-label">${spec.contacts.telegram}</div></div>
+      <button class="btn-full" style="margin-top:20px;" onclick="confirmClaimTelegram()">Подтвердить, что это я</button>
+    `;
+  } else {
+    const code = 'KRUG-' + Math.floor(1000 + Math.random() * 9000);
+    content.innerHTML = `
+      <div class="note-text">У этой анкеты нет Telegram, поэтому мгновенная проверка недоступна. Добавьте код ниже в описание вашего Instagram или на сайт на несколько минут — мы проверим вручную.</div>
+      <div class="code-chip">${code}</div>
+      <button class="btn-full" onclick="confirmClaimCode()">Код добавлен — отправить на проверку</button>
+    `;
+  }
+  document.getElementById('claimSheet').classList.add('open');
+  document.getElementById('claimOverlay').classList.add('open');
+}
+function closeClaimSheet(){
+  document.getElementById('claimSheet').classList.remove('open');
+  document.getElementById('claimOverlay').classList.remove('open');
+}
+function confirmClaimTelegram(){
+  const spec = ALL_SPECIALISTS[claimSpecId];
+  spec.verified = true;
+  MY_LISTING_IDS.add(spec.id);
+  closeClaimSheet();
+  fillProfile(spec);
+  renderCurrentList();
+  if(document.getElementById('screen-favorites').classList.contains('active')) renderFavoritesScreen();
+  showToast('Анкета подтверждена ✓');
+}
+function confirmClaimCode(){
+  closeClaimSheet();
+  showToast('Заявка на проверку отправлена. Обычно это занимает меньше суток.');
+}
+
+/* ---------- add-specialist form ---------- */
+function resetAddForm(){
+  addForm = {
+    step: 1,
+    category: null, subcat: null,
+    name: '', city: currentCity, langs: new Set(), about: '', services: [''],
+    contacts: {telegram:'', instagram:'', phone:'', website:''},
+    claimSelf: false,
+    hasLocation: true, address: ''
+  };
+}
+function openAddForm(){ resetAddForm(); closeMenu(); showScreen('add'); renderAddStep(); }
+
+function pickCategoryForForm(){
+  openPicker('Категория', CATEGORIES.map(c => ({id:c.id, label:c.label})), addForm.category, (id) => {
+    addForm.category = id; addForm.subcat = null; renderAddStep();
+  });
+}
+function pickSubcatForForm(){
+  const cat = CATEGORIES.find(c => c.id === addForm.category);
+  openPicker('Подкатегория', cat.subcats, addForm.subcat, (id) => { addForm.subcat = id; renderAddStep(); });
+}
+function pickCityForForm(){
+  openPicker('Город', CITIES, addForm.city, (id) => { addForm.city = id; renderAddStep(); });
+}
+function toggleFormLang(l){ addForm.langs.has(l) ? addForm.langs.delete(l) : addForm.langs.add(l); renderAddStep(); }
+function updateService(i, val){ addForm.services[i] = val; }
+function addService(){ addForm.services.push(''); renderAddStep(); }
+function removeService(i){ addForm.services.splice(i,1); renderAddStep(); }
+function toggleLocationFlag(){ addForm.hasLocation = !addForm.hasLocation; renderAddStep(); }
+
+function stepCategoryHtml(){
+  const cat = addForm.category ? CATEGORIES.find(c => c.id === addForm.category) : null;
+  const sub = (cat && addForm.subcat) ? cat.subcats.find(s => s.id === addForm.subcat) : null;
+  return `
+    <div class="field-label">КАТЕГОРИЯ И ПОДКАТЕГОРИЯ</div>
+    <div class="form-row" onclick="pickCategoryForForm()">
+      <div class="form-row-label">Категория</div>
+      <div class="form-row-value">${cat ? cat.label : 'Выбрать'} ${chevronRight()}</div>
+    </div>
+    <div class="form-row ${!cat ? 'disabled' : ''}" onclick="${cat ? 'pickSubcatForForm()' : ''}">
+      <div class="form-row-label">Подкатегория</div>
+      <div class="form-row-value">${sub ? sub.label : 'Выбрать'} ${chevronRight()}</div>
+    </div>
+  `;
+}
+function stepInfoHtml(){
+  return `
+    <div class="field-label">ИМЯ ИЛИ НАЗВАНИЕ</div>
+    <input class="field-input" type="text" value="${escapeAttr(addForm.name)}" placeholder="Например, Марта Й. или «Диалог»" oninput="addForm.name=this.value">
+
+    <div class="field-label">ГОРОД</div>
+    <div class="form-row" onclick="pickCityForForm()">
+      <div class="form-row-label">${CITIES.find(c => c.id === addForm.city).label}</div>
+      <div class="form-row-value">Изменить ${chevronRight()}</div>
+    </div>
+
+    <div class="field-label">ЯЗЫКИ ОБЩЕНИЯ</div>
+    <div class="chip-toggle-row">
+      ${['RU','UA'].map(l => `<button class="chip-toggle ${addForm.langs.has(l) ? 'active' : ''}" onclick="toggleFormLang('${l}')">${l}</button>`).join('')}
+    </div>
+
+    <div class="field-label">ОБО МНЕ</div>
+    <textarea class="field-input" placeholder="Коротко об опыте и подходе к работе" oninput="addForm.about=this.value">${addForm.about}</textarea>
+
+    <div class="field-label">УСЛУГИ</div>
+    ${addForm.services.map((val,i) => `
+      <div class="service-input-row">
+        <input class="field-input" type="text" value="${escapeAttr(val)}" placeholder="Например, «Маникюр»" oninput="updateService(${i}, this.value)">
+        ${addForm.services.length > 1 ? `<button class="remove-btn" onclick="removeService(${i})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">${ICONS.xmark}</svg></button>` : ''}
+      </div>
+    `).join('')}
+    <button class="add-link-btn" onclick="addService()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">${ICONS.plus}</svg>Добавить услугу</button>
+  `;
+}
+function claimNoteHtml(){
+  if(!addForm.claimSelf) return '';
+  const tgFilled = addForm.contacts.telegram.trim().length > 0;
+  return tgFilled
+    ? `<div class="note-text">Telegram выше совпадёт с вашим аккаунтом в этом чате — после публикации анкета сразу будет отмечена как подтверждённая, без дополнительных шагов.</div>`
+    : `<div class="note-text">Автоматическое подтверждение работает только через Telegram. Без него анкету можно будет подтвердить позже — уже со страницы опубликованной анкеты.</div>`;
+}
+function toggleClaimSelf(){
+  addForm.claimSelf = !addForm.claimSelf;
+  document.getElementById('claim-toggle').classList.toggle('on', addForm.claimSelf);
+  updateClaimNote();
+}
+function updateClaimNote(){
+  const area = document.getElementById('claim-note-area');
+  if(area) area.innerHTML = claimNoteHtml();
+}
+function stepContactsHtml(){
+  return `
+    <div class="field-label">TELEGRAM</div>
+    <input class="field-input" type="text" value="${escapeAttr(addForm.contacts.telegram)}" placeholder="@username" oninput="addForm.contacts.telegram=this.value; updateClaimNote();">
+    <div class="field-label">INSTAGRAM</div>
+    <input class="field-input" type="text" value="${escapeAttr(addForm.contacts.instagram)}" placeholder="@username" oninput="addForm.contacts.instagram=this.value">
+    <div class="field-label">ТЕЛЕФОН</div>
+    <input class="field-input" type="text" value="${escapeAttr(addForm.contacts.phone)}" placeholder="+359 ..." oninput="addForm.contacts.phone=this.value">
+    <div class="field-label">САЙТ</div>
+    <input class="field-input" type="text" value="${escapeAttr(addForm.contacts.website)}" placeholder="example.bg" oninput="addForm.contacts.website=this.value">
+    <div class="note-text" style="margin-top:16px;">Укажите хотя бы один способ связи — остальные можно оставить пустыми.</div>
+
+    <div class="toggle-row" style="margin-top:20px;">
+      <div class="form-row-label">Это анкета обо мне</div>
+      <div class="toggle-switch ${addForm.claimSelf ? 'on' : ''}" id="claim-toggle" onclick="toggleClaimSelf()"><div class="toggle-knob"></div></div>
+    </div>
+    <div id="claim-note-area">${claimNoteHtml()}</div>
+  `;
+}
+function stepLocationHtml(){
+  return `
+    <div class="toggle-row">
+      <div class="form-row-label">Есть адрес / место приёма</div>
+      <div class="toggle-switch ${addForm.hasLocation ? 'on' : ''}" onclick="toggleLocationFlag()"><div class="toggle-knob"></div></div>
+    </div>
+    ${addForm.hasLocation ? `
+      <div class="field-label">АДРЕС</div>
+      <input class="field-input" type="text" value="${escapeAttr(addForm.address)}" placeholder="Например, ул. Витоша 25, София" oninput="addForm.address=this.value">
+    ` : `<div class="note-text">Например, специалист работает онлайн или выезжает к клиенту. Блок «Местоположение» в карточке показан не будет.</div>`}
+  `;
+}
+function stepReviewHtml(){
+  const cat = CATEGORIES.find(c => c.id === addForm.category);
+  const sub = cat.subcats.find(s => s.id === addForm.subcat);
+  const filledContacts = CONTACT_ORDER.filter(t => addForm.contacts[t].trim());
+  return `
+    <div class="field-label">ПРОВЕРЬТЕ ДАННЫЕ</div>
+    <div class="review-block">
+      <div class="review-row"><span class="review-row-label">Категория</span><span class="review-row-value">${cat.label} → ${sub.label}</span></div>
+      <div class="review-row"><span class="review-row-label">Имя</span><span class="review-row-value">${addForm.name || '—'}</span></div>
+      <div class="review-row"><span class="review-row-label">Город</span><span class="review-row-value">${CITIES.find(c => c.id === addForm.city).label}</span></div>
+      <div class="review-row"><span class="review-row-label">Языки</span><span class="review-row-value">${Array.from(addForm.langs).join('/') || '—'}</span></div>
+      <div class="review-row"><span class="review-row-label">Услуги</span><span class="review-row-value">${addForm.services.filter(s => s.trim()).join(', ') || '—'}</span></div>
+      <div class="review-row"><span class="review-row-label">Контакты</span><span class="review-row-value">${filledContacts.map(t => CONTACT_LABELS[t]).join(', ') || '—'}</span></div>
+      <div class="review-row"><span class="review-row-label">Адрес</span><span class="review-row-value">${addForm.hasLocation ? (addForm.address || '—') : 'Без адреса'}</span></div>
+      <div class="review-row"><span class="review-row-label">Подтверждение</span><span class="review-row-value">${addForm.claimSelf ? (addForm.contacts.telegram.trim() ? 'Автоматически по Telegram' : 'Не подтверждено пока') : 'Не заявлено'}</span></div>
+    </div>
+    <div class="note-text">После отправки анкета попадёт на проверку модератору. Обычно это занимает меньше суток.</div>
+  `;
+}
+function stepSuccessHtml(){
+  const autoVerified = addForm.claimSelf && addForm.contacts.telegram.trim().length > 0;
+  return `<div class="success-wrap">
+    <div class="success-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${CHECK}</svg></div>
+    <div class="success-title">Анкета отправлена</div>
+    <div class="success-text">Мы проверим её и опубликуем в каталоге. Обычно это занимает меньше суток.${autoVerified ? ' Так как Telegram совпадает с вашим аккаунтом, анкета сразу будет отмечена как подтверждённая.' : ''}</div>
+  </div>`;
+}
+
+function renderAddStep(){
+  const content = document.getElementById('add-step-content');
+  if(addForm.step === 1) content.innerHTML = stepCategoryHtml();
+  else if(addForm.step === 2) content.innerHTML = stepInfoHtml();
+  else if(addForm.step === 3) content.innerHTML = stepContactsHtml();
+  else if(addForm.step === 4) content.innerHTML = stepLocationHtml();
+  else if(addForm.step === 5) content.innerHTML = stepReviewHtml();
+  else if(addForm.step === 'success') content.innerHTML = stepSuccessHtml();
+
+  document.getElementById('add-step-label').textContent = (addForm.step === 'success') ? '' : `ШАГ ${addForm.step} ИЗ 5`;
+  document.getElementById('add-progress').style.display = (addForm.step === 'success') ? 'none' : 'flex';
+  if(addForm.step !== 'success'){
+    document.getElementById('add-progress').innerHTML = [1,2,3,4,5].map(n => `<div class="progress-dot ${n <= addForm.step ? 'active' : ''}"></div>`).join('');
+  }
+
+  const bar = document.getElementById('add-bottom-bar');
+  if(addForm.step === 'success'){
+    bar.innerHTML = `<button class="btn-full" onclick="goHome()">На главную</button>`;
+  } else {
+    const label = addForm.step === 5 ? 'Отправить на проверку' : 'Далее';
+    bar.innerHTML = `<button class="btn-full" onclick="nextAddStep()">${label}</button>`;
+  }
+}
+
+async function createSubmissionFromForm(){
+  const cat = CATEGORIES.find(c => c.id === addForm.category);
+  const sub = cat.subcats.find(s => s.id === addForm.subcat);
+  const contacts = {};
+  CONTACT_ORDER.forEach(t => { if(addForm.contacts[t].trim()) contacts[t] = addForm.contacts[t].trim(); });
+
+  const created = await apiRequest('/api/specialists', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      name: addForm.name.trim(),
+      langs: Array.from(addForm.langs),
+      role: sub.label,
+      about: addForm.about.trim(),
+      services: addForm.services.map(s => s.trim()).filter(Boolean),
+      contactsTelegram: contacts.telegram || null,
+      contactsInstagram: contacts.instagram || null,
+      contactsPhone: contacts.phone || null,
+      contactsWebsite: contacts.website || null,
+      locationAddress: addForm.hasLocation ? addForm.address.trim() : null,
+      cityId: addForm.city,
+      categoryId: addForm.category,
+      subcategoryId: addForm.subcat
+    })
+  });
+
+  const spec = mapApiSpecialist(created);
+  ALL_SPECIALISTS[spec.id] = spec;
+  if(addForm.claimSelf) MY_LISTING_IDS.add(spec.id);
+  return spec;
+}
+function backAddStep(){
+  if(addForm.step === 'success' || addForm.step === 1){ showScreen('home'); return; }
+  addForm.step--; renderAddStep();
+}
+async function nextAddStep(){
+  if(addForm.step === 1 && (!addForm.category || !addForm.subcat)){ showToast('Выберите категорию и подкатегорию'); return; }
+  if(addForm.step === 2 && !addForm.name.trim()){ showToast('Укажите имя или название'); return; }
+  if(addForm.step === 3 && !Object.values(addForm.contacts).some(v => v.trim())){ showToast('Укажите хотя бы один способ связи'); return; }
+  if(addForm.step === 4 && addForm.hasLocation && !addForm.address.trim()){ showToast('Укажите адрес или отключите переключатель'); return; }
+  if(addForm.step === 5){
+    try {
+      await createSubmissionFromForm();
+      addForm.step = 'success';
+      renderAddStep();
+    } catch(e) {
+      showToast('Не удалось отправить анкету. Проверьте подключение и попробуйте ещё раз.');
+    }
+    return;
+  }
+  addForm.step++; renderAddStep();
+}
+
+/* ---------- toast ---------- */
+let toastTimer;
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 1900);
+}
+
+/* ---------- personal cabinet ("Мои услуги") ---------- */
+function openCabinet(){ renderCabinetScreen(); showScreen('cabinet'); closeMenu(); }
+function statusChipHtml(s){
+  if(s.status === 'pending') return `<span class="status-chip">На проверке</span>`;
+  if(s.status === 'rejected') return `<span class="status-chip rejected">Отклонено</span>`;
+  return `<span class="status-chip published">Опубликовано</span>`;
+}
+function cabinetCardHtml(s){
+  const clickable = s.status === 'published';
+  return `
+  <div class="spec-card">
+    ${s.boosted ? `<div class="top-ribbon">ТОП</div>` : ''}
+    <div class="spec-card-top" ${clickable ? `onclick="openProfileById(${s.id}, 'cabinet')" style="cursor:pointer;"` : `style="cursor:default;"`}>
+      <div class="avatar"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg></div>
+      <div class="spec-info">
+        <div class="spec-name-row">
+          <span class="spec-name">${s.name}</span>
+          ${s.verified ? `<svg class="verified-mini" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">${CHECK}</svg>` : ''}
+          ${s.pro ? `<span class="pro-chip">PRO</span>` : ''}
+        </div>
+        <div class="spec-role">${s.role}</div>
+      </div>
+    </div>
+    <div style="margin-top:10px;">${statusChipHtml(s)}</div>
+    ${s.status === 'rejected' ? `<div class="note-text" style="margin-top:8px;">Причина: ${s.rejectionReason}</div>` : ''}
+    ${s.status === 'published' ? `
+      <div class="cabinet-actions">
+        <button class="subcat-chip" onclick="openMoneySheet(${s.id}, 'pro')">${s.pro ? 'PRO подключён' : 'Оформить PRO'}</button>
+        <button class="subcat-chip" onclick="openMoneySheet(${s.id}, 'boost')">${s.boosted ? 'Буст активен' : 'Забустить'}</button>
+      </div>
+    ` : ''}
+  </div>`;
+}
+function renderCabinetScreen(){
+  const specs = Array.from(MY_LISTING_IDS).map(id => ALL_SPECIALISTS[id]).filter(Boolean);
+  document.getElementById('cabinet-items').innerHTML = specs.length
+    ? specs.map(s => cabinetCardHtml(s)).join('')
+    : `<div class="empty-state">
+        <div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">${ICONS.briefcase}</svg></div>
+        <div class="empty-title">Пока нет своих анкет</div>
+        <div class="empty-text">Добавьте анкету о себе или подтвердите существующую — они появятся здесь.</div>
+        <button class="btn-full" style="margin-top:16px;" onclick="openAddForm()">Добавить специалиста</button>
+      </div>`;
+}
+
+/* ---------- admin panel ---------- */
+let adminPending = [];
+
+function openAdmin(){
+  showScreen('admin');
+  closeMenu();
+  if(adminToken) loadAdminPending(); else renderAdminLogin();
+}
+function renderAdminLogin(){
+  document.getElementById('admin-items').innerHTML = `
+    <div class="field-label">ЛОГИН</div>
+    <input class="field-input" type="text" id="admin-login-username" placeholder="Логин">
+    <div class="field-label">ПАРОЛЬ</div>
+    <input class="field-input" type="password" id="admin-login-password" placeholder="Пароль">
+    <button class="btn-full" style="margin-top:14px;" onclick="submitAdminLogin()">Войти</button>
+  `;
+}
+async function submitAdminLogin(){
+  const username = document.getElementById('admin-login-username').value.trim();
+  const password = document.getElementById('admin-login-password').value;
+  try {
+    const res = await apiRequest('/api/admin/login', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({username, password})
+    });
+    adminToken = res.token;
+    loadAdminPending();
+  } catch(e) {
+    showToast('Неверный логин или пароль');
+  }
+}
+async function loadAdminPending(){
+  document.getElementById('admin-items').innerHTML = `<div style="padding:20px; color:var(--muted); font-size:13px;">Загрузка…</div>`;
+  try {
+    const pending = await apiRequest('/api/admin/pending', {
+      headers: {'Authorization': 'Bearer ' + adminToken}
+    });
+    adminPending = pending.map(mapApiSpecialist);
+    renderAdminScreen();
+  } catch(e) {
+    adminToken = null;
+    renderAdminLogin();
+    showToast('Сессия истекла, войдите снова');
+  }
+}
+function adminCardHtml(s){
+  const cat = CATEGORIES.find(c => c.id === s.catId);
+  const sub = cat.subcats.find(x => x.id === s.subcatId);
+  const contactsList = CONTACT_ORDER.filter(t => s.contacts[t]).map(t => `${CONTACT_LABELS[t]}: ${s.contacts[t]}`).join(' · ') || '—';
+  const city = CITIES.find(c => c.id === s.cityId);
+  return `
+  <div class="spec-card">
+    <div class="admin-detail-row"><span>Категория</span><span>${cat.label} → ${sub.label}</span></div>
+    <div class="admin-detail-row"><span>Имя</span><span>${s.name}</span></div>
+    <div class="admin-detail-row"><span>Город</span><span>${city ? city.label : '—'}</span></div>
+    <div class="admin-detail-row"><span>Языки</span><span>${s.langs.join('/') || '—'}</span></div>
+    <div class="admin-detail-row"><span>Услуги</span><span>${s.services.join(', ') || '—'}</span></div>
+    <div class="admin-detail-row"><span>Контакты</span><span>${contactsList}</span></div>
+    <div class="admin-detail-row"><span>Адрес</span><span>${s.location ? s.location.address : 'Без адреса'}</span></div>
+    <div class="admin-detail-row"><span>Заявлено «это я»</span><span>${s.verified ? 'Да, авто-подтверждено по Telegram' : 'Нет'}</span></div>
+    <div class="admin-actions">
+      <button class="btn-reject" onclick="toggleRejectBox(${s.id})">Отклонить</button>
+      <button class="btn-approve" onclick="approveSubmission(${s.id})">Одобрить</button>
+    </div>
+    <div class="reject-box" id="reject-box-${s.id}" style="display:none;">
+      <textarea class="field-input" id="reject-reason-${s.id}" placeholder="Причина отказа (покажем заявителю)" style="margin-top:10px; min-height:60px;"></textarea>
+      <button class="btn-full" style="margin-top:8px;" onclick="confirmReject(${s.id})">Подтвердить отказ</button>
+    </div>
+  </div>`;
+}
+function renderAdminScreen(){
+  document.getElementById('admin-items').innerHTML = adminPending.length
+    ? adminPending.map(s => adminCardHtml(s)).join('')
+    : `<div class="empty-state">
+        <div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">${CHECK}</svg></div>
+        <div class="empty-title">Нет заявок на проверке</div>
+        <div class="empty-text">Новые анкеты появятся здесь сразу после отправки формы «Добавить специалиста».</div>
+      </div>`;
+}
+function toggleRejectBox(id){
+  const box = document.getElementById('reject-box-' + id);
+  box.style.display = box.style.display === 'block' ? 'none' : 'block';
+}
+async function approveSubmission(id){
+  try {
+    await apiRequest(`/api/admin/specialists/${id}/approve`, {
+      method: 'POST',
+      headers: {'Authorization': 'Bearer ' + adminToken}
+    });
+    adminPending = adminPending.filter(s => s.id !== id);
+    renderAdminScreen();
+    showToast('Анкета опубликована');
+  } catch(e) {
+    showToast('Не удалось одобрить анкету');
+  }
+}
+async function confirmReject(id){
+  const reason = document.getElementById('reject-reason-' + id).value.trim();
+  try {
+    await apiRequest(`/api/admin/specialists/${id}/reject`, {
+      method: 'POST',
+      headers: {'Authorization': 'Bearer ' + adminToken, 'Content-Type': 'application/json'},
+      body: JSON.stringify({reason})
+    });
+    adminPending = adminPending.filter(s => s.id !== id);
+    renderAdminScreen();
+    showToast('Анкета отклонена');
+  } catch(e) {
+    showToast('Не удалось отклонить анкету');
+  }
+}
+
+/* ---------- PRO / Boost purchase ---------- */
+function openMoneySheet(id, type){
+  moneySpecId = id; moneyType = type; selectedBoostDays = 7;
+  document.getElementById('money-title').textContent = type === 'pro' ? 'PRO-подписка' : 'Буст анкеты';
+  renderMoneySheet();
+  document.getElementById('moneySheet').classList.add('open');
+  document.getElementById('moneyOverlay').classList.add('open');
+}
+function closeMoneySheet(){
+  document.getElementById('moneySheet').classList.remove('open');
+  document.getElementById('moneyOverlay').classList.remove('open');
+}
+function renderMoneySheet(){
+  const content = document.getElementById('money-content');
+  if(moneyType === 'pro'){
+    content.innerHTML = `
+      <div class="benefit-row"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${CHECK}</svg>Приоритет выше обычных анкет</div>
+      <div class="benefit-row"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${CHECK}</svg>Бейдж «PRO» у имени</div>
+      <div class="benefit-row"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${CHECK}</svg>Размещение в неограниченном числе подкатегорий</div>
+      <div class="benefit-row"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${CHECK}</svg>Приоритет при модерации</div>
+      <div class="benefit-row"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${CHECK}</svg>Статистика просмотров анкеты</div>
+      <div class="price-row"><span>Ежемесячно</span><span>${PRO_PRICE} ⭐</span></div>
+      <button class="btn-full" onclick="confirmPro()">Оформить за ${PRO_PRICE} Stars</button>
+      <div class="note-text" style="margin-top:10px;">Демо-оплата — реальное списание Stars подключим вместе с настоящим бэкендом.</div>
+    `;
+  } else {
+    content.innerHTML = `
+      <div class="note-text" style="margin-bottom:14px;">Поднимает анкету в топ подкатегории на выбранный срок.</div>
+      <div class="duration-row">
+        <div class="duration-option ${selectedBoostDays === 7 ? 'active' : ''}" onclick="selectBoostDays(7)"><div class="d-label">7 дней</div><div class="d-price">${BOOST_PRICES[7]} ⭐</div></div>
+        <div class="duration-option ${selectedBoostDays === 30 ? 'active' : ''}" onclick="selectBoostDays(30)"><div class="d-label">30 дней</div><div class="d-price">${BOOST_PRICES[30]} ⭐</div></div>
+      </div>
+      <button class="btn-full" onclick="confirmBoost()">Забустить за ${BOOST_PRICES[selectedBoostDays]} Stars</button>
+      <div class="note-text" style="margin-top:10px;">Демо-оплата — реальное списание Stars подключим вместе с настоящим бэкендом.</div>
+    `;
+  }
+}
+function selectBoostDays(d){ selectedBoostDays = d; renderMoneySheet(); }
+function confirmPro(){
+  const spec = ALL_SPECIALISTS[moneySpecId];
+  spec.pro = true;
+  closeMoneySheet();
+  renderCabinetScreen();
+  renderCurrentList();
+  showToast('PRO подключён (демо)');
+}
+function confirmBoost(){
+  const spec = ALL_SPECIALISTS[moneySpecId];
+  spec.boosted = true;
+  closeMoneySheet();
+  renderCabinetScreen();
+  renderCurrentList();
+  showToast('Буст на ' + selectedBoostDays + ' дней активирован (демо)');
+}
+
+(async function init(){
+  const scroll = document.querySelector('.cat-scroll');
+  if(scroll) scroll.innerHTML = '<div style="padding:20px; color:var(--muted); font-size:13px;">Загрузка данных с сервера…</div>';
+  try {
+    await loadPublicData();
+  } catch(e) {
+    console.error(e);
+    if(scroll) scroll.innerHTML = '<div style="padding:20px; color:var(--muted); font-size:13px;">Не удалось загрузить данные с сервера. Проверьте подключение и обновите страницу.</div>';
+    return;
+  }
+  renderCategoryScroll();
+})();
+</script>
+
+</body>
+</html>
