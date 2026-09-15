@@ -33,6 +33,10 @@ body{
   font-feature-settings:"tnum" 1;
 }
 a{color:var(--ink);}
+/* iOS Safari красит текст/иконки внутри <button> в системный синий, если явно
+   не задан color — на Android и десктопе это незаметно, а на iPhone портит
+   все кружки категорий. Сбрасываем цвет и убираем синюю вспышку при тапе. */
+button{color:inherit; -webkit-tap-highlight-color:transparent;}
 a:hover{color:var(--muted);}
 @media(prefers-reduced-motion: reduce){ *{transition:none !important; animation:none !important;} }
 ::-webkit-scrollbar{display:none;}
@@ -70,11 +74,11 @@ a:hover{color:var(--muted);}
 .city-pill:active{transform:scale(.94);}
 .city-pill svg{width:11px; height:11px;}
 .city-pill .pin-icon{width:19px; height:19px; flex-shrink:0;}
-.city-pill .city-pill-text{white-space:nowrap; opacity:0; transition:opacity .2s ease;}
-.city-pill .chevron-icon{opacity:0; transition:opacity .2s ease; margin-left:auto; flex-shrink:0;}
+.city-pill .city-pill-text{white-space:nowrap; opacity:0; width:0; overflow:hidden; transition:opacity .2s ease;}
+.city-pill .chevron-icon{opacity:0; width:0; overflow:hidden; transition:opacity .2s ease; margin-left:auto; flex-shrink:0;}
 .city-pill.expanded{width:190px; padding:0 16px; justify-content:flex-start;}
-.city-pill.expanded .city-pill-text{opacity:1;}
-.city-pill.expanded .chevron-icon{opacity:1;}
+.city-pill.expanded .city-pill-text{opacity:1; width:auto; overflow:visible;}
+.city-pill.expanded .chevron-icon{opacity:1; width:11px; overflow:visible;}
 .step-label{font-size:11px; font-weight:800; letter-spacing:.06em; color:var(--muted);}
 
 .screen{position:relative;}
@@ -621,7 +625,7 @@ async function loadPublicData(){
   ]);
 
   CATEGORIES = categories.map(mapApiCategory);
-  CITIES = cities.map(c => ({id: c.id, label: c.label}));
+  CITIES = cities.map(c => ({id: c.id, label: c.label, country: c.country}));
 
   SPECIALISTS = {};
   ALL_SPECIALISTS = {};
@@ -655,7 +659,11 @@ const BOOST_PRICES = {7:200, 30:600};
 
 /* ---------- helpers ---------- */
 function cityLabel(){ return CITIES.find(c => c.id === currentCity).label; }
-function isCityAvailable(){ return currentCity === 'sofia'; }
+// Раньше здесь была временная заглушка "работаем только с Софией" — теперь городов
+// и стран несколько, поэтому доступны все города из каталога без исключений.
+function isCityAvailable(){ return true; }
+const COUNTRY_LABELS_RU = {Bulgaria: 'Болгария', Poland: 'Польша'};
+function countryLabelRu(country){ return COUNTRY_LABELS_RU[country] || country; }
 function escapeAttr(str){ return (str || '').replace(/"/g, '&quot;'); }
 function chevronRight(){ return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${ICONS.chevronRight}</svg>`; }
 function sortForDisplay(specs){
@@ -870,22 +878,58 @@ function renderProfileBadges(spec){
   if(spec.boosted) chips.push(`<div class="verified-badge chip-fill">⚡ Продвигается сейчас</div>`);
   return chips.length ? `<div class="badges-row">${chips.join('')}</div>` : '';
 }
+// Открывает внешнюю ссылку. Внутри Telegram (мини-приложение) пользуемся его же
+// методами — так ссылка открывается в системном браузере/приложении, а не
+// теряется внутри WebView. Вне Telegram (например, при тестировании в обычном
+// браузере) tg будет null — тогда просто открываем новую вкладку.
+function openExternalLink(url){
+  if(tg && tg.openLink){ tg.openLink(url); }
+  else { window.open(url, '_blank'); }
+}
+function openTelegramProfile(username){
+  const clean = String(username || '').replace(/^@/, '').trim();
+  if(!clean) return;
+  const url = 'https://t.me/' + clean;
+  if(tg && tg.openTelegramLink){ tg.openTelegramLink(url); }
+  else { window.open(url, '_blank'); }
+}
+// Значение приходит через encodeURIComponent, чтобы кавычки/спецсимволы в номере
+// телефона, ссылке или имени пользователя не ломали атрибут onclick.
+function openContact(type, encodedValue){
+  const value = decodeURIComponent(encodedValue);
+  if(type === 'telegram'){
+    openTelegramProfile(value);
+  } else if(type === 'phone'){
+    window.location.href = 'tel:' + value.replace(/[^\d+]/g, '');
+  } else if(type === 'instagram'){
+    const clean = value.replace(/^https?:\/\/(www\.)?instagram\.com\//i, '').replace(/^@/, '').replace(/\/$/, '');
+    openExternalLink(value.startsWith('http') ? value : `https://instagram.com/${clean}`);
+  } else if(type === 'website'){
+    openExternalLink(value.startsWith('http') ? value : `https://${value}`);
+  }
+}
+function openMap(encodedAddress){
+  const address = decodeURIComponent(encodedAddress);
+  openExternalLink('https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(address));
+}
 function renderContactsBlock(spec){
   return CONTACT_ORDER.filter(t => spec.contacts[t]).map(t => {
     const isTg = t === 'telegram';
+    const encodedValue = encodeURIComponent(spec.contacts[t]);
     return `
-    <div class="contact-row ${isTg ? '' : 'tappable'}" ${isTg ? '' : `onclick="showToast('Демо: откроется ${CONTACT_LABELS[t]}')"`}>
+    <div class="contact-row ${isTg ? '' : 'tappable'}" ${isTg ? '' : `onclick="openContact('${t}','${encodedValue}')"`}>
       <div class="contact-icon"><svg viewBox="0 0 24 24" fill="${isTg ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${ICONS[t]}</svg></div>
       <div class="contact-text-wrap"><div class="contact-label">${CONTACT_LABELS[t]}</div><div class="contact-value">${spec.contacts[t]}</div></div>
-      ${isTg ? `<button class="contact-action" onclick="showToast('Демо: откроется Telegram')">Написать в Telegram</button>` : ''}
+      ${isTg ? `<button class="contact-action" onclick="openContact('telegram','${encodedValue}')">Написать в Telegram</button>` : ''}
     </div>`;
   }).join('');
 }
 function locationBlockHtml(spec){
   if(!spec.location) return '';
+  const encodedAddress = encodeURIComponent(spec.location.address);
   return `
     <div class="block-title">МЕСТОПОЛОЖЕНИЕ</div>
-    <div class="map-preview" onclick="showToast('Демо: откроется карта')">
+    <div class="map-preview" onclick="openMap('${encodedAddress}')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${ICONS.pin}</svg>
     </div>
     <div class="location-address">${spec.location.address}</div>`;
@@ -903,7 +947,7 @@ function updateStickyCta(spec){
   document.getElementById('cta-label').textContent = 'НАПИСАТЬ В TELEGRAM';
   document.getElementById('cta-icon').setAttribute('fill', 'currentColor');
   document.getElementById('cta-icon').innerHTML = ICONS.telegram;
-  document.getElementById('profile-cta-btn').onclick = () => showToast('Демо: откроется Telegram');
+  document.getElementById('profile-cta-btn').onclick = () => openTelegramProfile(spec.contacts.telegram);
   cta.style.display = 'block';
 }
 
@@ -942,10 +986,11 @@ function selectPickerOption(id){ closePicker(); if(pickerOnSelect) pickerOnSelec
 
 function openCityModal(){
   document.getElementById('city-pill').classList.add('expanded');
-  openPicker('Город (Болгария)', CITIES, currentCity, (id) => {
+  const options = CITIES.map(c => ({id: c.id, label: c.country ? `${c.label} · ${countryLabelRu(c.country)}` : c.label}));
+  openPicker('Город', options, currentCity, (id) => {
     currentCity = id;
     document.getElementById('city-label').textContent = cityLabel().toUpperCase();
-    showToast(id === 'sofia' ? 'Показаны специалисты в Софии' : 'Пока показываем демо только для Софии — этот город скоро добавим');
+    showToast('Показаны специалисты: ' + cityLabel());
   });
 }
 
@@ -1032,7 +1077,8 @@ function pickSubcatForForm(){
   openPicker('Подкатегория', cat.subcats, addForm.subcat, (id) => { addForm.subcat = id; renderAddStep(); });
 }
 function pickCityForForm(){
-  openPicker('Город', CITIES, addForm.city, (id) => { addForm.city = id; renderAddStep(); });
+  const cityOptions = CITIES.map(c => ({id: c.id, label: c.country ? `${c.label} · ${countryLabelRu(c.country)}` : c.label}));
+  openPicker('Город', cityOptions, addForm.city, (id) => { addForm.city = id; renderAddStep(); });
 }
 function toggleFormLang(l){ addForm.langs.has(l) ? addForm.langs.delete(l) : addForm.langs.add(l); renderAddStep(); }
 function updateService(i, val){ addForm.services[i] = val; }
@@ -1394,7 +1440,7 @@ function editOwnFormHtml(s){
     <input class="field-input" type="text" id="eo-name" value="${escapeAttr(s.name)}">
     <div class="field-label">ГОРОД</div>
     <select class="field-input" id="eo-city">
-      ${CITIES.map(c => `<option value="${c.id}" ${c.id===s.cityId?'selected':''}>${c.label}</option>`).join('')}
+      ${CITIES.map(c => `<option value="${c.id}" ${c.id===s.cityId?'selected':''}>${c.label}${c.country ? ' · ' + countryLabelRu(c.country) : ''}</option>`).join('')}
     </select>
     <div class="field-label">ОБО МНЕ</div>
     <textarea class="field-input" id="eo-about" style="min-height:70px;">${escapeAttr(s.about)}</textarea>
