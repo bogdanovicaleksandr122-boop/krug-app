@@ -8,7 +8,6 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@700;800;900&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
-<style>
 :root{
   --ink:#0a0a0a;
   --paper:#ffffff;
@@ -293,32 +292,186 @@ textarea.field-input{resize:vertical; min-height:80px; line-height:1.4;}
 .toast{position:absolute; left:50%; bottom:26px; transform:translate(-50%,12px); background:var(--ink); color:var(--paper); padding:11px 18px; border-radius:999px; font-size:12.5px; font-weight:700; opacity:0; pointer-events:none; transition:all .35s var(--ease-soft); z-index:30; white-space:nowrap; max-width:88%; text-align:center;}
 .toast.show{opacity:1; transform:translate(-50%,0);}
 
-</style>
-body{ max-width:480px; margin:0 auto; }
-.admin-page{ padding:20px 20px 40px; }
-.admin-page .list-title{ margin-top:6px; }
-.logout-row{ display:flex; justify-content:flex-end; margin-bottom:6px; }
+
+/* ---------- admin.html: доп. стили ---------- */
+body{ background:var(--backdrop); }
+.toast{ position:fixed !important; }
+.admin-shell{
+  position:relative; width:100%; max-width:980px; margin:32px auto;
+  background:var(--paper); border-radius:var(--radius-lg); box-shadow:var(--shadow);
+  padding:26px 30px 50px;
+}
+@media(max-width:680px){
+  .admin-shell{ margin:0; border-radius:0; padding:18px 16px 40px; box-shadow:none; }
+  body{ padding:0; }
+  .field-row-2{ grid-template-columns:1fr !important; }
+}
+.admin-header{ display:flex; align-items:center; justify-content:space-between; margin-bottom:22px; gap:12px; flex-wrap:wrap; }
+.admin-header-left{ display:flex; align-items:center; gap:14px; }
+.admin-header-left .logo-badge{ margin:0; width:56px; height:56px; outline-offset:4px; flex-shrink:0; }
+.admin-header-title{ font-family:var(--font-display); font-weight:800; font-size:19px; }
 .logout-link{ font-size:12.5px; font-weight:700; color:var(--muted); background:none; border:none; text-decoration:underline; cursor:pointer; font-family:inherit; }
+.logout-link:hover{ color:var(--ink); }
+
+.admin-tabs{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:22px; border-bottom:1px solid var(--line); padding-bottom:16px; }
+.admin-tab{ padding:9px 16px; border-radius:999px; background:var(--paper-soft); font-weight:700; font-size:13px; cursor:pointer; border:2px solid transparent; transition:all .2s ease; user-select:none; }
+.admin-tab:hover{ background:var(--backdrop); }
+.admin-tab.active{ background:var(--ink); color:var(--paper); }
+
+.admin-toolbar{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:16px; }
+.admin-toolbar select, .admin-toolbar input[type=text]{
+  border:2.2px solid var(--line); border-radius:14px; padding:10px 14px; font-family:inherit; font-size:13.5px; background:var(--paper); color:var(--ink);
+}
+.btn-small{ border:2px solid var(--ink); background:var(--ink); color:var(--paper); border-radius:14px; padding:9px 16px; font-weight:700; font-size:13px; cursor:pointer; font-family:inherit; }
+.btn-small.ghost{ background:var(--paper); color:var(--ink); }
+.btn-small:hover{ opacity:.85; }
+
+.row-list{ display:flex; flex-direction:column; gap:10px; }
+.admin-row{ display:flex; align-items:center; justify-content:space-between; gap:14px; border:1.5px solid var(--line); border-radius:18px; padding:14px 16px; flex-wrap:wrap; }
+.admin-row-main{ min-width:0; flex:1; }
+.admin-row-name{ font-weight:800; font-size:14.5px; }
+.admin-row-meta{ font-size:12.5px; color:var(--muted); margin-top:2px; }
+.admin-row-badges{ display:flex; gap:6px; margin-top:8px; flex-wrap:wrap; }
+.mini-badge{ font-size:10.5px; font-weight:800; padding:3px 9px; border-radius:999px; background:var(--paper-soft); text-transform:uppercase; letter-spacing:.3px; }
+.mini-badge.on{ background:var(--ink); color:var(--paper); }
+.admin-row-actions{ display:flex; gap:8px; flex-shrink:0; }
+.btn-tiny{ border:1.5px solid var(--ink); background:var(--paper); border-radius:12px; padding:7px 12px; font-weight:700; font-size:12px; cursor:pointer; font-family:inherit; }
+.btn-tiny:hover{ background:var(--ink); color:var(--paper); }
+.btn-tiny.danger{ border-color:#c0392b; color:#c0392b; }
+.btn-tiny.danger:hover{ background:#c0392b; color:var(--paper); }
+
+.stat-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:12px; margin-bottom:26px; }
+.stat-card{ background:var(--paper-soft); border-radius:18px; padding:16px; }
+.stat-num{ font-family:var(--font-display); font-size:26px; font-weight:800; line-height:1; }
+.stat-label{ font-size:11px; color:var(--muted); margin-top:6px; font-weight:700; text-transform:uppercase; letter-spacing:.3px; }
+
+.data-table{ width:100%; border-collapse:collapse; font-size:12.5px; margin-bottom:10px; }
+.data-table th{ text-align:left; padding:8px 10px; border-bottom:2px solid var(--line); font-size:11px; text-transform:uppercase; color:var(--muted); white-space:nowrap; }
+.data-table td{ padding:9px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
+
+.modal-overlay{ position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:100; display:none; align-items:flex-start; justify-content:center; overflow-y:auto; padding:40px 16px; }
+.modal-overlay.open{ display:flex; }
+.admin-modal{ background:var(--paper); border-radius:24px; max-width:560px; width:100%; padding:26px 26px 30px; }
+.modal-title{ font-family:var(--font-display); font-weight:800; font-size:18px; margin-bottom:6px; }
+.field-row-2{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.toggle-row{ display:flex; align-items:center; gap:10px; padding:8px 0; font-size:13.5px; font-weight:600; }
+.csv-help{ background:var(--paper-soft); border-radius:16px; padding:16px; font-size:12.5px; line-height:1.7; margin-bottom:16px; }
+.csv-help code{ background:var(--paper); padding:1px 6px; border-radius:5px; }
 </style>
 </head>
 <body>
-<div class="admin-page">
-  <div class="logo-badge" style="margin-bottom:14px;"><span>КРУГ · АДМИН</span></div>
-  <div class="logout-row"><button class="logout-link" id="logout-btn" style="display:none;" onclick="adminLogout()">Выйти</button></div>
-  <div class="list-title">ЗАЯВКИ НА ПРОВЕРКЕ</div>
-  <div id="admin-items"></div>
-</div>
-<div class="toast" id="toast"></div>
+<div class="admin-shell" id="adminShell">
 
+  <div id="loginScreen">
+    <div class="admin-header">
+      <div class="admin-header-left">
+        <div class="logo-badge"><span>КРУГ</span></div>
+        <div class="admin-header-title">Админ-панель</div>
+      </div>
+    </div>
+    <div class="field-label">ЛОГИН</div>
+    <input class="field-input" type="text" id="admin-login-username" placeholder="Логин">
+    <div class="field-label">ПАРОЛЬ</div>
+    <input class="field-input" type="password" id="admin-login-password" placeholder="Пароль">
+    <button class="btn-full" style="margin-top:14px;" onclick="submitAdminLogin()">Войти</button>
+  </div>
+
+  <div id="adminMain" style="display:none;">
+    <div class="admin-header">
+      <div class="admin-header-left">
+        <div class="logo-badge"><span>КРУГ</span></div>
+        <div class="admin-header-title">Админ-панель</div>
+      </div>
+      <button class="logout-link" onclick="adminLogout()">Выйти</button>
+    </div>
+
+    <div class="admin-tabs">
+      <div class="admin-tab active" data-tab="pending" onclick="switchTab('pending')">Заявки</div>
+      <div class="admin-tab" data-tab="all" onclick="switchTab('all')">Все анкеты</div>
+      <div class="admin-tab" data-tab="import" onclick="switchTab('import')">Импорт CSV</div>
+      <div class="admin-tab" data-tab="catalog" onclick="switchTab('catalog')">Категории и города</div>
+      <div class="admin-tab" data-tab="stats" onclick="switchTab('stats')">Статистика</div>
+    </div>
+
+    <div class="admin-tab-content" id="tab-pending">
+      <div class="list-title">ЗАЯВКИ НА ПРОВЕРКЕ</div>
+      <div id="admin-items"></div>
+    </div>
+
+    <div class="admin-tab-content" id="tab-all" style="display:none;">
+      <div class="admin-toolbar">
+        <select id="all-status-filter" onchange="loadAllSpecialists()">
+          <option value="">Все статусы</option>
+          <option value="pending">На проверке</option>
+          <option value="published">Опубликовано</option>
+          <option value="rejected">Отклонено</option>
+        </select>
+        <input type="text" id="all-search" placeholder="Поиск по имени/роли" onkeydown="if(event.key==='Enter') loadAllSpecialists()">
+        <button class="btn-small ghost" onclick="loadAllSpecialists()">Найти</button>
+        <button class="btn-small" onclick="openEditModal(null)">+ Добавить анкету</button>
+      </div>
+      <div class="row-list" id="all-items"></div>
+    </div>
+
+    <div class="admin-tab-content" id="tab-import" style="display:none;">
+      <div class="csv-help">
+        Загрузите CSV со специалистами. Если указанные страна/город/категория/подкатегория ещё не существуют — они будут созданы автоматически, анкета привяжется к ним.<br><br>
+        Обязательные колонки в заголовке: <code>country, city, category, subcategory, name, role</code>.<br>
+        Необязательные: <code>category_icon, about, langs, services, contactsTelegram, contactsInstagram, contactsPhone, contactsWebsite, locationAddress, status, verified, pro, boosted</code>.<br><br>
+        В колонках <code>langs</code> и <code>services</code> перечисляйте значения через вертикальную черту: <code>RU|UA</code>.<br>
+        В <code>verified</code>/<code>pro</code>/<code>boosted</code> пишите <code>да</code> или <code>нет</code>. Если не указать <code>status</code> — анкета сразу публикуется.
+      </div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px;">
+        <button class="btn-small ghost" onclick="downloadCsvTemplate()">Скачать пример CSV</button>
+      </div>
+      <input type="file" accept=".csv,text/csv" id="csv-file-input">
+      <button class="btn-full" style="margin-top:14px;" onclick="uploadCsv()">Загрузить</button>
+      <div id="csv-result" style="margin-top:18px;"></div>
+    </div>
+
+    <div class="admin-tab-content" id="tab-catalog" style="display:none;">
+      <div class="list-title">КАТЕГОРИИ</div>
+      <div class="row-list" id="catalog-categories"></div>
+      <div class="list-title" style="margin-top:26px;">ГОРОДА</div>
+      <div class="row-list" id="catalog-cities"></div>
+    </div>
+
+    <div class="admin-tab-content" id="tab-stats" style="display:none;">
+      <div class="stat-grid" id="stats-grid"></div>
+      <div class="list-title">ТОП КАТЕГОРИЙ</div>
+      <table class="data-table" id="stats-top-categories"></table>
+      <div class="list-title" style="margin-top:20px;">ТОП ГОРОДОВ</div>
+      <table class="data-table" id="stats-top-cities"></table>
+      <div class="list-title" style="margin-top:26px;">ПОЛЬЗОВАТЕЛИ</div>
+      <div style="overflow-x:auto;">
+        <table class="data-table" id="stats-users-table"></table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="editModalOverlay">
+  <div class="admin-modal">
+    <div class="modal-title" id="edit-modal-title">Анкета</div>
+    <div id="edit-modal-body"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
 <script>
 /* ---------- базовая настройка ---------- */
 const API_BASE = 'https://krug-backend-production.up.railway.app';
 let adminToken = sessionStorage.getItem('krugAdminToken') || null;
-let CATEGORIES = [];
-let CITIES = [];
+let currentTab = 'pending';
+let allSpecialists = [];
+let catalogCategories = [];
+let catalogCities = [];
+let editingSpecId = null;
 const CONTACT_ORDER = ['telegram','phone','instagram','website'];
 const CONTACT_LABELS = {telegram:'Telegram', phone:'Телефон', instagram:'Instagram', website:'Сайт'};
 const CHECK = '<path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>';
+const ICONS = { briefcase: '<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2"/>' };
+const VALID_ICONS = ['home','sparkle','gear','doc','cap','cup','car','box','users','dumbbell','smiley','paw','building','briefcase','gift','heart'];
 
 async function apiRequest(path, options){
   const res = await fetch(API_BASE + path, options || {});
@@ -329,6 +482,9 @@ async function apiRequest(path, options){
   }
   if(res.status === 204) return null;
   return res.json();
+}
+function authHeaders(extra){
+  return Object.assign({'Authorization': 'Bearer ' + adminToken}, extra || {});
 }
 function mapApiSpecialist(s){
   return {
@@ -345,30 +501,19 @@ function mapApiSpecialist(s){
     verified: !!s.verified
   };
 }
-function mapApiCategory(c){
-  return { id: c.id, label: c.label, subcats: (c.subcategories || []).map(sc => ({id: sc.id, label: sc.label})) };
+function escapeAttr(str){
+  return String(str == null ? '' : str).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
 }
-
 let toastTimer;
 function showToast(msg){
   const t = document.getElementById('toast');
   t.textContent = msg;
   t.classList.add('show');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.classList.remove('show'), 1900);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
 }
 
 /* ---------- логин ---------- */
-function renderAdminLogin(){
-  document.getElementById('logout-btn').style.display = 'none';
-  document.getElementById('admin-items').innerHTML = `
-    <div class="field-label">ЛОГИН</div>
-    <input class="field-input" type="text" id="admin-login-username" placeholder="Логин">
-    <div class="field-label">ПАРОЛЬ</div>
-    <input class="field-input" type="password" id="admin-login-password" placeholder="Пароль">
-    <button class="btn-full" style="margin-top:14px;" onclick="submitAdminLogin()">Войти</button>
-  `;
-}
 async function submitAdminLogin(){
   const username = document.getElementById('admin-login-username').value.trim();
   const password = document.getElementById('admin-login-password').value;
@@ -380,40 +525,59 @@ async function submitAdminLogin(){
     });
     adminToken = res.token;
     sessionStorage.setItem('krugAdminToken', adminToken);
-    document.getElementById('logout-btn').style.display = 'block';
-    loadAdminPending();
+    await afterLogin();
   } catch(e) {
     showToast('Неверный логин или пароль');
   }
 }
+async function afterLogin(){
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('adminMain').style.display = 'block';
+  await loadCatalogLists();
+  switchTab('pending');
+}
 function adminLogout(){
   adminToken = null;
   sessionStorage.removeItem('krugAdminToken');
-  renderAdminLogin();
+  document.getElementById('adminMain').style.display = 'none';
+  document.getElementById('loginScreen').style.display = 'block';
+  document.getElementById('admin-login-username').value = '';
+  document.getElementById('admin-login-password').value = '';
+}
+function sessionExpired(){
+  showToast('Сессия истекла, войдите снова');
+  adminLogout();
 }
 
-/* ---------- заявки ---------- */
+/* ---------- вкладки ---------- */
+function switchTab(tab){
+  currentTab = tab;
+  document.querySelectorAll('.admin-tab').forEach(el => el.classList.toggle('active', el.dataset.tab === tab));
+  document.querySelectorAll('.admin-tab-content').forEach(el => el.style.display = 'none');
+  document.getElementById('tab-' + tab).style.display = 'block';
+  if(tab === 'pending') loadAdminPending();
+  if(tab === 'all') loadAllSpecialists();
+  if(tab === 'catalog') loadCatalog();
+  if(tab === 'stats') loadStats();
+}
+
+/* ---------- заявки на проверке ---------- */
 let adminPending = [];
 async function loadAdminPending(){
   document.getElementById('admin-items').innerHTML = `<div style="padding:20px; color:var(--muted); font-size:13px;">Загрузка…</div>`;
   try {
-    const pending = await apiRequest('/api/admin/pending', {
-      headers: {'Authorization': 'Bearer ' + adminToken}
-    });
+    const pending = await apiRequest('/api/admin/pending', {headers: authHeaders()});
     adminPending = pending.map(mapApiSpecialist);
     renderAdminScreen();
   } catch(e) {
-    adminToken = null;
-    sessionStorage.removeItem('krugAdminToken');
-    renderAdminLogin();
-    showToast('Сессия истекла, войдите снова');
+    sessionExpired();
   }
 }
 function adminCardHtml(s){
-  const cat = CATEGORIES.find(c => c.id === s.catId);
-  const sub = cat ? cat.subcats.find(x => x.id === s.subcatId) : null;
+  const cat = catalogCategories.find(c => c.id === s.catId);
+  const sub = cat ? (cat.subcategories||[]).find(x => x.id === s.subcatId) : null;
   const contactsList = CONTACT_ORDER.filter(t => s.contacts[t]).map(t => `${CONTACT_LABELS[t]}: ${s.contacts[t]}`).join(' · ') || '—';
-  const city = CITIES.find(c => c.id === s.cityId);
+  const city = catalogCities.find(c => c.id === s.cityId);
   return `
   <div class="spec-card">
     <div class="admin-detail-row"><span>Категория</span><span>${cat ? cat.label : s.catId} → ${sub ? sub.label : s.subcatId}</span></div>
@@ -435,7 +599,6 @@ function adminCardHtml(s){
   </div>`;
 }
 function renderAdminScreen(){
-  document.getElementById('logout-btn').style.display = 'block';
   document.getElementById('admin-items').innerHTML = adminPending.length
     ? adminPending.map(s => adminCardHtml(s)).join('')
     : `<div class="empty-state">
@@ -450,46 +613,357 @@ function toggleRejectBox(id){
 }
 async function approveSubmission(id){
   try {
-    await apiRequest(`/api/admin/specialists/${id}/approve`, {
-      method: 'POST',
-      headers: {'Authorization': 'Bearer ' + adminToken}
-    });
+    await apiRequest(`/api/admin/specialists/${id}/approve`, {method: 'POST', headers: authHeaders()});
     adminPending = adminPending.filter(s => s.id !== id);
     renderAdminScreen();
     showToast('Анкета опубликована');
-  } catch(e) {
-    showToast('Не удалось одобрить анкету');
-  }
+  } catch(e) { showToast('Не удалось одобрить анкету'); }
 }
 async function confirmReject(id){
   const reason = document.getElementById('reject-reason-' + id).value.trim();
   try {
     await apiRequest(`/api/admin/specialists/${id}/reject`, {
-      method: 'POST',
-      headers: {'Authorization': 'Bearer ' + adminToken, 'Content-Type': 'application/json'},
-      body: JSON.stringify({reason})
+      method: 'POST', headers: authHeaders({'Content-Type': 'application/json'}), body: JSON.stringify({reason})
     });
     adminPending = adminPending.filter(s => s.id !== id);
     renderAdminScreen();
     showToast('Анкета отклонена');
+  } catch(e) { showToast('Не удалось отклонить анкету'); }
+}
+
+/* ---------- все анкеты (полное управление) ---------- */
+function statusLabel(s){
+  return s === 'pending' ? 'На проверке' : s === 'rejected' ? 'Отклонено' : 'Опубликовано';
+}
+async function loadAllSpecialists(){
+  const status = document.getElementById('all-status-filter').value;
+  const search = document.getElementById('all-search').value.trim();
+  const params = new URLSearchParams();
+  if(status) params.set('status', status);
+  if(search) params.set('search', search);
+  document.getElementById('all-items').innerHTML = `<div style="padding:20px; color:var(--muted); font-size:13px;">Загрузка…</div>`;
+  try {
+    allSpecialists = await apiRequest('/api/admin/specialists?' + params.toString(), {headers: authHeaders()});
+    renderAllSpecialists();
+  } catch(e) { sessionExpired(); }
+}
+function renderAllSpecialists(){
+  const el = document.getElementById('all-items');
+  if(!allSpecialists.length){
+    el.innerHTML = `<div class="empty-state"><div class="empty-title">Ничего не найдено</div></div>`;
+    return;
+  }
+  el.innerHTML = allSpecialists.map(s => `
+    <div class="admin-row">
+      <div class="admin-row-main">
+        <div class="admin-row-name">${s.name} <span style="font-weight:500; color:var(--muted);">· ${s.role}</span></div>
+        <div class="admin-row-meta">${s.city ? s.city.label : 'Без города'} · ${s.category ? s.category.label : s.categoryId} → ${s.subcategory ? s.subcategory.label : s.subcategoryId}</div>
+        <div class="admin-row-badges">
+          <span class="mini-badge">${statusLabel(s.status)}</span>
+          ${s.verified ? `<span class="mini-badge on">Подтверждён</span>` : ''}
+          ${s.pro ? `<span class="mini-badge on">PRO</span>` : ''}
+          ${s.boosted ? `<span class="mini-badge on">Буст</span>` : ''}
+        </div>
+      </div>
+      <div class="admin-row-actions">
+        <button class="btn-tiny" onclick="openEditModal(${s.id})">Изменить</button>
+        <button class="btn-tiny danger" onclick="deleteSpecialist(${s.id})">Удалить</button>
+      </div>
+    </div>
+  `).join('');
+}
+async function deleteSpecialist(id){
+  if(!confirm('Удалить анкету безвозвратно? Это действие нельзя отменить.')) return;
+  try {
+    await apiRequest(`/api/admin/specialists/${id}`, {method: 'DELETE', headers: authHeaders()});
+    allSpecialists = allSpecialists.filter(s => s.id !== id);
+    renderAllSpecialists();
+    showToast('Анкета удалена');
+  } catch(e) { showToast('Не удалось удалить анкету'); }
+}
+
+/* ---------- модальное окно редактирования/создания ---------- */
+function openEditModal(id){
+  editingSpecId = id;
+  const s = id ? allSpecialists.find(x => x.id === id) : null;
+  document.getElementById('edit-modal-title').textContent = id ? 'Редактировать анкету' : 'Новая анкета';
+  document.getElementById('edit-modal-body').innerHTML = editFormHtml(s);
+  fillCategorySelect(s ? s.categoryId : null, s ? s.subcategoryId : null);
+  fillCitySelect(s ? s.cityId : null);
+  document.getElementById('editModalOverlay').classList.add('open');
+}
+function closeEditModal(){
+  document.getElementById('editModalOverlay').classList.remove('open');
+}
+function editFormHtml(s){
+  s = s || {};
+  return `
+    <div class="field-label">ИМЯ</div>
+    <input class="field-input" id="ef-name" value="${escapeAttr(s.name)}">
+    <div class="field-label">СПЕЦИАЛИЗАЦИЯ (ROLE)</div>
+    <input class="field-input" id="ef-role" value="${escapeAttr(s.role)}">
+    <div class="field-row-2">
+      <div><div class="field-label">КАТЕГОРИЯ</div><select class="field-input" id="ef-category" onchange="fillSubcategorySelect(this.value)"></select></div>
+      <div><div class="field-label">ПОДКАТЕГОРИЯ</div><select class="field-input" id="ef-subcategory"></select></div>
+    </div>
+    <div class="field-label">ГОРОД</div>
+    <select class="field-input" id="ef-city"></select>
+    <div class="field-label">О СЕБЕ</div>
+    <textarea class="field-input" id="ef-about" style="min-height:70px;">${escapeAttr(s.about)}</textarea>
+    <div class="field-label">ЯЗЫКИ (через запятую)</div>
+    <input class="field-input" id="ef-langs" value="${escapeAttr((s.langs||[]).join(', '))}">
+    <div class="field-label">УСЛУГИ (через запятую)</div>
+    <input class="field-input" id="ef-services" value="${escapeAttr((s.services||[]).join(', '))}">
+    <div class="field-row-2">
+      <div><div class="field-label">TELEGRAM</div><input class="field-input" id="ef-telegram" value="${escapeAttr(s.contactsTelegram)}"></div>
+      <div><div class="field-label">ТЕЛЕФОН</div><input class="field-input" id="ef-phone" value="${escapeAttr(s.contactsPhone)}"></div>
+    </div>
+    <div class="field-row-2">
+      <div><div class="field-label">INSTAGRAM</div><input class="field-input" id="ef-instagram" value="${escapeAttr(s.contactsInstagram)}"></div>
+      <div><div class="field-label">САЙТ</div><input class="field-input" id="ef-website" value="${escapeAttr(s.contactsWebsite)}"></div>
+    </div>
+    <div class="field-label">АДРЕС</div>
+    <input class="field-input" id="ef-address" value="${escapeAttr(s.locationAddress)}">
+    <div class="field-label">СТАТУС</div>
+    <select class="field-input" id="ef-status">
+      <option value="pending" ${s.status==='pending'?'selected':''}>На проверке</option>
+      <option value="published" ${(!s.status||s.status==='published')?'selected':''}>Опубликовано</option>
+      <option value="rejected" ${s.status==='rejected'?'selected':''}>Отклонено</option>
+    </select>
+    <div class="toggle-row"><input type="checkbox" id="ef-verified" ${s.verified?'checked':''}> <label for="ef-verified">Подтверждено специалистом</label></div>
+    <div class="toggle-row"><input type="checkbox" id="ef-pro" ${s.pro?'checked':''}> <label for="ef-pro">PRO</label></div>
+    <div class="toggle-row"><input type="checkbox" id="ef-boosted" ${s.boosted?'checked':''}> <label for="ef-boosted">Буст</label></div>
+    <div style="display:flex; gap:10px; margin-top:18px;">
+      <button class="btn-full" onclick="saveEditForm()">Сохранить</button>
+      <button class="btn-tiny" onclick="closeEditModal()" style="flex-shrink:0;">Отмена</button>
+    </div>
+  `;
+}
+function fillCategorySelect(selectedId, selectedSubId){
+  const sel = document.getElementById('ef-category');
+  sel.innerHTML = catalogCategories.map(c => `<option value="${c.id}" ${c.id===selectedId?'selected':''}>${c.label}</option>`).join('');
+  fillSubcategorySelect(sel.value, selectedSubId);
+}
+function fillSubcategorySelect(categoryId, selectedSubId){
+  const cat = catalogCategories.find(c => c.id === categoryId);
+  const sel = document.getElementById('ef-subcategory');
+  const subs = cat ? (cat.subcategories || []) : [];
+  sel.innerHTML = subs.map(sc => `<option value="${sc.id}" ${sc.id===selectedSubId?'selected':''}>${sc.label}</option>`).join('');
+}
+function fillCitySelect(selectedId){
+  const sel = document.getElementById('ef-city');
+  sel.innerHTML = '<option value="">Без города</option>' + catalogCities.map(c => `<option value="${c.id}" ${c.id===selectedId?'selected':''}>${c.label} (${c.country})</option>`).join('');
+}
+async function saveEditForm(){
+  const payload = {
+    name: document.getElementById('ef-name').value.trim(),
+    role: document.getElementById('ef-role').value.trim(),
+    categoryId: document.getElementById('ef-category').value,
+    subcategoryId: document.getElementById('ef-subcategory').value,
+    cityId: document.getElementById('ef-city').value || null,
+    about: document.getElementById('ef-about').value.trim(),
+    langs: document.getElementById('ef-langs').value.split(',').map(s=>s.trim()).filter(Boolean),
+    services: document.getElementById('ef-services').value.split(',').map(s=>s.trim()).filter(Boolean),
+    contactsTelegram: document.getElementById('ef-telegram').value.trim() || null,
+    contactsPhone: document.getElementById('ef-phone').value.trim() || null,
+    contactsInstagram: document.getElementById('ef-instagram').value.trim() || null,
+    contactsWebsite: document.getElementById('ef-website').value.trim() || null,
+    locationAddress: document.getElementById('ef-address').value.trim() || null,
+    status: document.getElementById('ef-status').value,
+    verified: document.getElementById('ef-verified').checked,
+    pro: document.getElementById('ef-pro').checked,
+    boosted: document.getElementById('ef-boosted').checked,
+  };
+  if(!payload.name || !payload.role || !payload.categoryId || !payload.subcategoryId){
+    showToast('Заполните имя, специализацию, категорию и подкатегорию');
+    return;
+  }
+  try {
+    if(editingSpecId){
+      await apiRequest(`/api/admin/specialists/${editingSpecId}`, {
+        method:'PUT', headers: authHeaders({'Content-Type':'application/json'}), body: JSON.stringify(payload)
+      });
+      showToast('Анкета сохранена');
+    } else {
+      await apiRequest('/api/admin/specialists', {
+        method:'POST', headers: authHeaders({'Content-Type':'application/json'}), body: JSON.stringify(payload)
+      });
+      showToast('Анкета создана');
+    }
+    closeEditModal();
+    loadAllSpecialists();
+  } catch(e) { showToast('Не удалось сохранить: ' + e.message); }
+}
+
+/* ---------- импорт CSV ---------- */
+function downloadCsvTemplate(){
+  const header = 'country,city,category,category_icon,subcategory,name,role,about,langs,services,contactsTelegram,contactsInstagram,contactsPhone,contactsWebsite,locationAddress,status,verified,pro,boosted';
+  const example = 'Bulgaria,София,Красота и уход,sparkle,Маникюр/педикюр,Мария И.,Маникюр/педикюр,Работаю на дому,RU|UA,Классический маникюр|Покрытие гель-лаком,@maria_nails,,+359881112233,,ул. Витоша 1,published,да,нет,нет';
+  const blob = new Blob(['\ufeff' + header + '\n' + example + '\n'], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'krug-import-example.csv';
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
+async function uploadCsv(){
+  const input = document.getElementById('csv-file-input');
+  if(!input.files.length){ showToast('Выберите файл'); return; }
+  const text = await input.files[0].text();
+  document.getElementById('csv-result').innerHTML = `<div style="color:var(--muted); font-size:13px;">Загрузка…</div>`;
+  try {
+    const res = await fetch(API_BASE + '/api/admin/specialists/bulk-csv', {
+      method:'POST',
+      headers: authHeaders({'Content-Type':'text/csv; charset=utf-8'}),
+      body: text
+    });
+    const data = await res.json();
+    if(!res.ok){ throw new Error(data.error || 'Ошибка сервера'); }
+    document.getElementById('csv-result').innerHTML = `
+      <div class="csv-help">
+        Добавлено анкет: <b>${data.createdSpecialists}</b><br>
+        Новых городов: ${data.createdCities.length ? data.createdCities.join(', ') : '—'}<br>
+        Новых категорий: ${data.createdCategories.length ? data.createdCategories.join(', ') : '—'}<br>
+        Новых подкатегорий: ${data.createdSubcategories.length ? data.createdSubcategories.join(', ') : '—'}
+        ${data.errors.length ? '<br><br><b>Ошибки в некоторых строках:</b><br>' + data.errors.map(escapeAttr).join('<br>') : ''}
+      </div>`;
+    loadCatalogLists();
+    showToast('Импорт завершён');
   } catch(e) {
-    showToast('Не удалось отклонить анкету');
+    document.getElementById('csv-result').innerHTML = `<div class="csv-help">Ошибка: ${escapeAttr(e.message)}</div>`;
   }
 }
 
-/* ---------- старт ---------- */
-(async function init(){
+/* ---------- категории и города ---------- */
+async function loadCatalogLists(){
   try {
     const [categories, cities] = await Promise.all([
       apiRequest('/api/categories'),
       apiRequest('/api/cities')
     ]);
-    CATEGORIES = categories.map(mapApiCategory);
-    CITIES = cities.map(c => ({id: c.id, label: c.label}));
+    catalogCategories = categories;
+    catalogCities = cities;
+  } catch(e) { console.error(e); }
+}
+function loadCatalog(){
+  renderCatalogCategories();
+  renderCatalogCities();
+}
+function renderCatalogCategories(){
+  document.getElementById('catalog-categories').innerHTML = catalogCategories.map(c => `
+    <div class="admin-row">
+      <div class="admin-row-main" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+        <input class="field-input" style="width:220px;" id="cat-label-${c.id}" value="${escapeAttr(c.label)}">
+        <select class="field-input" style="width:150px;" id="cat-icon-${c.id}">
+          ${VALID_ICONS.map(i => `<option value="${i}" ${i===c.icon?'selected':''}>${i}</option>`).join('')}
+        </select>
+        <span class="admin-row-meta">${(c.subcategories||[]).length} подкатегорий</span>
+      </div>
+      <div class="admin-row-actions">
+        <button class="btn-tiny" onclick="saveCategory('${c.id}')">Сохранить</button>
+      </div>
+    </div>
+  `).join('');
+}
+async function saveCategory(id){
+  const label = document.getElementById('cat-label-'+id).value.trim();
+  const icon = document.getElementById('cat-icon-'+id).value;
+  try {
+    await apiRequest(`/api/admin/categories/${id}`, {method:'PUT', headers: authHeaders({'Content-Type':'application/json'}), body: JSON.stringify({label, icon})});
+    showToast('Категория сохранена');
+    await loadCatalogLists();
+    renderCatalogCategories();
+  } catch(e) { showToast('Не удалось сохранить'); }
+}
+function renderCatalogCities(){
+  document.getElementById('catalog-cities').innerHTML = catalogCities.map(c => `
+    <div class="admin-row">
+      <div class="admin-row-main" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+        <input class="field-input" style="width:170px;" id="city-label-${c.id}" value="${escapeAttr(c.label)}">
+        <input class="field-input" style="width:150px;" id="city-country-${c.id}" value="${escapeAttr(c.country)}">
+      </div>
+      <div class="admin-row-actions">
+        <button class="btn-tiny" onclick="saveCity('${c.id}')">Сохранить</button>
+      </div>
+    </div>
+  `).join('');
+}
+async function saveCity(id){
+  const label = document.getElementById('city-label-'+id).value.trim();
+  const country = document.getElementById('city-country-'+id).value.trim();
+  try {
+    await apiRequest(`/api/admin/cities/${id}`, {method:'PUT', headers: authHeaders({'Content-Type':'application/json'}), body: JSON.stringify({label, country})});
+    showToast('Город сохранён');
+    await loadCatalogLists();
+    renderCatalogCities();
+  } catch(e) { showToast('Не удалось сохранить'); }
+}
+
+/* ---------- статистика ---------- */
+async function loadStats(){
+  document.getElementById('stats-grid').innerHTML = `<div style="padding:20px; color:var(--muted); font-size:13px;">Загрузка…</div>`;
+  try {
+    const [stats, users] = await Promise.all([
+      apiRequest('/api/admin/stats', {headers: authHeaders()}),
+      apiRequest('/api/admin/users', {headers: authHeaders()})
+    ]);
+    renderStats(stats);
+    renderUsersTable(users);
   } catch(e) {
-    console.error(e);
+    document.getElementById('stats-grid').innerHTML = `<div style="color:var(--muted); font-size:13px;">Не удалось загрузить статистику</div>`;
   }
-  if(adminToken) loadAdminPending(); else renderAdminLogin();
+}
+function statCard(num, label){
+  return `<div class="stat-card"><div class="stat-num">${num}</div><div class="stat-label">${label}</div></div>`;
+}
+function renderStats(s){
+  const starsTotal = s.payments.reduce((sum,p) => sum + p.starsTotal, 0);
+  document.getElementById('stats-grid').innerHTML = [
+    statCard(s.users.total, 'Пользователей всего'),
+    statCard(s.users.active24h, 'Активны за 24ч'),
+    statCard(s.users.active7d, 'Активны за 7 дней'),
+    statCard(s.specialists.total, 'Анкет всего'),
+    statCard(s.specialists.published, 'Опубликовано'),
+    statCard(s.specialists.pending, 'На проверке'),
+    statCard(s.specialists.rejected, 'Отклонено'),
+    statCard(s.specialists.pro, 'PRO-анкет'),
+    statCard(s.specialists.boosted, 'С бустом'),
+    statCard(s.specialists.newLast7d, 'Новых за 7 дней'),
+    statCard(s.catalog.categories, 'Категорий'),
+    statCard(s.catalog.cities, 'Городов'),
+    statCard(s.favorites, 'В избранном (всего)'),
+    statCard(starsTotal, 'Заработано Stars'),
+  ].join('');
+  document.getElementById('stats-top-categories').innerHTML = `<tr><th>Категория</th><th>Анкет</th></tr>` +
+    (s.topCategories.map(c => `<tr><td>${escapeAttr(c.label)}</td><td>${c.count}</td></tr>`).join('') || `<tr><td colspan="2">Пока пусто</td></tr>`);
+  document.getElementById('stats-top-cities').innerHTML = `<tr><th>Город</th><th>Анкет</th></tr>` +
+    (s.topCities.map(c => `<tr><td>${escapeAttr(c.label)}</td><td>${c.count}</td></tr>`).join('') || `<tr><td colspan="2">Пока пусто</td></tr>`);
+}
+function fmtDate(d){
+  if(!d) return '—';
+  return new Date(d).toLocaleString('ru-RU', {day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit'});
+}
+function renderUsersTable(users){
+  document.getElementById('stats-users-table').innerHTML = `
+    <tr><th>Юзернейм</th><th>Имя</th><th>IP</th><th>Первый вход</th><th>Последняя активность</th></tr>
+    ${users.map(u => `<tr>
+      <td>${u.username ? '@'+escapeAttr(u.username) : '—'}</td>
+      <td>${escapeAttr([u.firstName,u.lastName].filter(Boolean).join(' ')) || '—'}</td>
+      <td>${escapeAttr(u.lastIp) || '—'}</td>
+      <td>${fmtDate(u.firstSeenAt)}</td>
+      <td>${fmtDate(u.lastSeenAt)}</td>
+    </tr>`).join('') || '<tr><td colspan="5">Пока никто не заходил</td></tr>'}
+  `;
+}
+
+/* ---------- старт ---------- */
+(async function init(){
+  document.getElementById('editModalOverlay').addEventListener('click', (e) => {
+    if(e.target.id === 'editModalOverlay') closeEditModal();
+  });
+  if(adminToken){
+    await afterLogin();
+  }
 })();
 </script>
 </body>
