@@ -64,23 +64,24 @@ a:hover{color:var(--muted);}
 .iconbtn:active{transform:scale(.88);}
 .iconbtn svg{width:20px; height:20px; stroke-width:2.4;}
 .city-pill{
-  width:44px; height:44px; padding:0; border-radius:999px; overflow:hidden;
-  display:flex; align-items:center; border:2.5px solid var(--ink); justify-content:center;
+  position:relative; width:44px; height:44px; padding:0 39px 0 0; border-radius:999px; overflow:hidden;
+  display:flex; align-items:center; border:2.5px solid var(--ink); justify-content:flex-start;
   font-size:12.5px; font-weight:800; letter-spacing:.02em; cursor:pointer; background:var(--paper);
-  transition:width .38s var(--ease-soft), background .2s ease, color .2s ease, padding .38s var(--ease-soft);
+  transition:width .38s var(--ease-soft), padding-left .38s var(--ease-soft), background .2s ease, color .2s ease;
   flex-shrink:0;
 }
-/* gap только когда пилюля развёрнута — иначе в свёрнутом состоянии он всё равно
-   резервирует 6px справа от иконки (даже у невидимых width:0 элементов) и
-   сдвигает видимую метку влево от центра круга. */
-.city-pill.expanded{gap:6px;}
+/* Метка закреплена абсолютным позиционированием с фиксированным отступом от правого
+   края пилюли — правый край всегда стоит на месте (пилюля прижата к правому краю
+   topbar через justify-content:space-between), поэтому при разворачивании иконка
+   физически не сдвигается с экрана: расширяется только область слева от неё,
+   куда и выезжает название города. */
+.city-pill.expanded{width:210px; padding-left:16px; gap:6px;}
 .city-pill:hover{background:var(--ink); color:var(--paper);}
 .city-pill:active{transform:scale(.94);}
 .city-pill svg{width:11px; height:11px;}
-.city-pill .pin-icon{width:19px; height:19px; flex-shrink:0;}
+.city-pill .pin-icon{position:absolute; right:12.5px; top:50%; width:19px; height:19px; transform:translateY(-50%); flex-shrink:0;}
 .city-pill .city-pill-text{white-space:nowrap; opacity:0; width:0; overflow:hidden; transition:opacity .2s ease;}
-.city-pill .chevron-icon{opacity:0; width:0; overflow:hidden; transition:opacity .2s ease; margin-left:auto; flex-shrink:0;}
-.city-pill.expanded{width:190px; padding:0 16px; justify-content:flex-start;}
+.city-pill .chevron-icon{opacity:0; width:0; overflow:hidden; transition:opacity .2s ease; flex-shrink:0;}
 .city-pill.expanded .city-pill-text{opacity:1; width:auto; overflow:visible;}
 .city-pill.expanded .chevron-icon{opacity:1; width:11px; overflow:visible;}
 .step-label{font-size:11px; font-weight:800; letter-spacing:.06em; color:var(--muted);}
@@ -198,6 +199,11 @@ a:hover{color:var(--muted);}
 .faq-answer{max-height:0; overflow:hidden; transition:max-height .32s var(--ease);}
 .faq-item.open .faq-answer{max-height:320px;}
 .faq-answer-inner{padding:0 2px 16px; font-size:13px; color:var(--muted); line-height:1.55;}
+
+.profile-footer{text-align:center; margin-top:28px; padding-top:16px; border-top:1px solid var(--line);}
+.profile-id{font-size:11px; color:var(--muted); letter-spacing:.03em;}
+.report-link{display:block; margin:8px auto 0; font-size:12px; color:var(--muted); text-decoration:underline; text-underline-offset:2px; cursor:pointer; background:none; border:none; font-family:inherit; padding:4px;}
+.report-link:hover{color:var(--ink);}
 
 .map-preview{height:120px; border-radius:var(--radius-md); background-image:repeating-linear-gradient(45deg,#f2f2ef,#f2f2ef 10px,#ebebe8 10px,#ebebe8 20px); border:1.5px solid var(--line); display:flex; align-items:center; justify-content:center; cursor:pointer; margin-bottom:8px; color:var(--ink); transition:border-color .2s ease, transform .2s var(--ease);}
 .map-preview:hover{border-color:var(--ink); transform:translateY(-1px);}
@@ -503,6 +509,10 @@ textarea.field-input{resize:vertical; min-height:80px; line-height:1.4;}
 
     <div id="p-location"></div>
     <div id="p-claim"></div>
+    <div class="profile-footer">
+      <div class="profile-id" id="p-id"></div>
+      <button class="report-link" onclick="reportSpecialist()">Пожаловаться на анкету</button>
+    </div>
 
     <div class="cta-space"></div>
   </div>
@@ -669,7 +679,8 @@ function mapApiSpecialist(s){
     verified: !!s.verified,
     pro: !!s.pro,
     boosted: !!s.boosted,
-    photoFileId: s.photoFileId || null
+    photoFileId: s.photoFileId || null,
+    publicId: s.publicId || null
   };
 }
 
@@ -933,6 +944,7 @@ function fillProfile(spec){
   document.getElementById('p-claim').innerHTML = spec.verified ? '' : `
     <div class="claim-block"><button class="claim-link" onclick="openClaimSheet(${spec.id})">Это ваша анкета? Подтвердить</button></div>
   `;
+  document.getElementById('p-id').textContent = spec.publicId ? '№ ' + spec.publicId : '';
   setProfileFavButton(spec.id);
   updateStickyCta(spec);
 }
@@ -965,7 +977,7 @@ function openContact(type, encodedValue){
   if(type === 'telegram'){
     openTelegramProfile(value);
   } else if(type === 'phone'){
-    window.location.href = 'tel:' + value.replace(/[^\d+]/g, '');
+    openPhoneDialer(value);
   } else if(type === 'instagram'){
     const clean = value.replace(/^https?:\/\/(www\.)?instagram\.com\//i, '').replace(/^@/, '').replace(/\/$/, '');
     openExternalLink(value.startsWith('http') ? value : `https://instagram.com/${clean}`);
@@ -976,6 +988,19 @@ function openContact(type, encodedValue){
 function openMap(encodedAddress){
   const address = decodeURIComponent(encodedAddress);
   openExternalLink('https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(address));
+}
+// На iOS (WebKit/Telegram WebView) программное присваивание window.location.href = 'tel:...'
+// часто просто ничего не делает — WebKit блокирует смену схемы адреса, если она не
+// исходит от настоящего клика по <a href="tel:...">. На Android так тоже работает,
+// поэтому раньше баг был незаметен. Создаём временную ссылку и кликаем по ней —
+// это уже настоящая навигация по ссылке, а не скрипт, и iOS её не блокирует.
+function openPhoneDialer(rawValue){
+  const a = document.createElement('a');
+  a.href = 'tel:' + rawValue.replace(/[^\d+]/g, '');
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
 }
 function renderContactsBlock(spec){
   return CONTACT_ORDER.filter(t => spec.contacts[t]).map(t => {
@@ -1050,6 +1075,26 @@ function openSupportScreen(){
   supportTopicId = null;
   renderFaq();
   showScreen('support'); closeMenu();
+}
+// Жалоба на анкету — со страницы специалиста, с подтверждением через нативный
+// диалог Telegram (если приложение открыто не в Telegram — обычный confirm браузера).
+// После согласия переносим человека в поддержку с уже выбранной темой и
+// подставленным текстом, ссылающимся на номер анкеты — не нужно ничего искать самому.
+function reportSpecialist(){
+  const spec = ALL_SPECIALISTS[currentProfileId];
+  if(!spec) return;
+  const proceed = () => {
+    openSupportScreen();
+    supportTopicId = 'complaint';
+    document.getElementById('support-topic-value').textContent = SUPPORT_TOPICS.find(t => t.id === 'complaint').label;
+    document.getElementById('support-message').value = `Жалоба на анкету №${spec.publicId}. Жалоба заключается в том, что `;
+    document.getElementById('support-message').focus();
+  };
+  if(tg && tg.showConfirm){
+    tg.showConfirm('Подать жалобу на анкету?', (ok) => { if(ok) proceed(); });
+  } else if(window.confirm('Подать жалобу на анкету?')){
+    proceed();
+  }
 }
 function openSupportTopicPicker(){
   openPicker('Тема обращения', SUPPORT_TOPICS, supportTopicId, (id) => {
@@ -1140,10 +1185,47 @@ function closePicker(){
 }
 function selectPickerOption(id){ closePicker(); if(pickerOnSelect) pickerOnSelect(id); }
 
+/* ---------- выбор страны → города (двухшаговый, использует ту же шторку) ---------- */
+let locationPickerOnSelect = null;
+function openLocationPicker(activeCityId, onSelect){
+  locationPickerOnSelect = onSelect;
+  renderCountryStep(activeCityId);
+  document.getElementById('pickerSheet').classList.add('open');
+  document.getElementById('pickerOverlay').classList.add('open');
+}
+function renderCountryStep(activeCityId){
+  const countries = [...new Set(CITIES.map(c => c.country))];
+  const activeCountry = (CITIES.find(c => c.id === activeCityId) || {}).country;
+  document.getElementById('picker-title').textContent = 'Страна';
+  document.getElementById('picker-list').innerHTML = countries.map(country => `
+    <div class="sheet-option ${country === activeCountry ? 'active' : ''}" onclick="renderCityStep('${country}', '${activeCityId || ''}')">
+      ${countryLabelRu(country)}
+      <svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+    </div>
+  `).join('');
+}
+function renderCityStep(country, activeCityId){
+  document.getElementById('picker-title').textContent = countryLabelRu(country);
+  const cities = CITIES.filter(c => c.country === country);
+  document.getElementById('picker-list').innerHTML = `
+    <div class="sheet-option" onclick="renderCountryStep('${activeCityId || ''}')" style="color:var(--muted);">
+      ← Другая страна
+    </div>
+  ` + cities.map(c => `
+    <div class="sheet-option ${c.id === activeCityId ? 'active' : ''}" onclick="selectLocationCity('${c.id}')">
+      ${c.label}
+      <svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+    </div>
+  `).join('');
+}
+function selectLocationCity(id){
+  closePicker();
+  if(locationPickerOnSelect) locationPickerOnSelect(id);
+}
+
 function openCityModal(){
   document.getElementById('city-pill').classList.add('expanded');
-  const options = CITIES.map(c => ({id: c.id, label: c.country ? `${c.label} · ${countryLabelRu(c.country)}` : c.label}));
-  openPicker('Город', options, currentCity, (id) => {
+  openLocationPicker(currentCity, (id) => {
     currentCity = id;
     document.getElementById('city-label').textContent = cityLabel().toUpperCase();
     showToast('Показаны специалисты: ' + cityLabel());
@@ -1233,8 +1315,7 @@ function pickSubcatForForm(){
   openPicker('Подкатегория', cat.subcats, addForm.subcat, (id) => { addForm.subcat = id; renderAddStep(); });
 }
 function pickCityForForm(){
-  const cityOptions = CITIES.map(c => ({id: c.id, label: c.country ? `${c.label} · ${countryLabelRu(c.country)}` : c.label}));
-  openPicker('Город', cityOptions, addForm.city, (id) => { addForm.city = id; renderAddStep(); });
+  openLocationPicker(addForm.city, (id) => { addForm.city = id; renderAddStep(); });
 }
 function toggleFormLang(l){ addForm.langs.has(l) ? addForm.langs.delete(l) : addForm.langs.add(l); renderAddStep(); }
 function updateService(i, val){ addForm.services[i] = val; }
