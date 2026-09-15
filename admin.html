@@ -407,7 +407,7 @@ body{ background:var(--backdrop); }
           <option value="published">Опубликовано</option>
           <option value="rejected">Отклонено</option>
         </select>
-        <input type="text" id="all-search" placeholder="Поиск по имени/роли" onkeydown="if(event.key==='Enter') loadAllSpecialists()">
+        <input type="text" id="all-search" placeholder="Поиск по имени/роли, № анкеты, username или Telegram ID заявителя" onkeydown="if(event.key==='Enter') loadAllSpecialists()">
         <button class="btn-small ghost" onclick="loadAllSpecialists()">Найти</button>
         <button class="btn-small" onclick="openEditModal(null)">+ Добавить анкету</button>
       </div>
@@ -506,7 +506,8 @@ function mapApiSpecialist(s){
     catId: s.categoryId, subcatId: s.subcategoryId, cityId: s.cityId,
     verified: !!s.verified,
     pendingChanges: s.pendingChanges || null,
-    photoFileId: s.photoFileId || null
+    photoFileId: s.photoFileId || null,
+    publicId: s.publicId, submitter: s.submitter || null, createdAt: s.createdAt
   };
 }
 function escapeAttr(str){
@@ -639,6 +640,8 @@ function adminCardHtml(s){
     <div class="admin-detail-row"><span>Контакты</span><span>${contactsList}</span></div>
     <div class="admin-detail-row"><span>Адрес</span><span>${s.location ? s.location.address : 'Без адреса'}</span></div>
     <div class="admin-detail-row"><span>Заявлено «это я»</span><span>${s.verified ? 'Да, авто-подтверждено по Telegram' : 'Нет'}</span></div>
+    <div class="admin-detail-row"><span>№ анкеты</span><span>${s.publicId || '—'}</span></div>
+    <div class="admin-detail-row"><span>Подал</span><span>${s.submitter ? (s.submitter.username ? '@'+s.submitter.username : 'без username') + ' (id ' + s.submitter.id + ')' : 'неизвестно'}${s.createdAt ? ', ' + fmtDate(s.createdAt) : ''}</span></div>
     <div class="admin-actions">
       <button class="btn-reject" onclick="toggleRejectBox(${s.id})">${s.pendingChanges ? 'Отклонить правку' : 'Отклонить'}</button>
       <button class="btn-approve" onclick="approveSubmission(${s.id})">${s.pendingChanges ? 'Принять правку' : 'Одобрить'}</button>
@@ -711,6 +714,12 @@ async function loadAllSpecialists(){
     renderAllSpecialists();
   } catch(e) { sessionExpired(); }
 }
+function submitterLine(s){
+  const who = s.submitter
+    ? `${s.submitter.username ? '@' + s.submitter.username : 'без username'} (id ${s.submitter.id})`
+    : 'неизвестно';
+  return `№ ${s.publicId} · Подал: ${who} · ${fmtDate(s.createdAt)}`;
+}
 function renderAllSpecialists(){
   const el = document.getElementById('all-items');
   if(!allSpecialists.length){
@@ -723,6 +732,7 @@ function renderAllSpecialists(){
       <div class="admin-row-main">
         <div class="admin-row-name">${s.name} <span style="font-weight:500; color:var(--muted);">· ${s.role}</span></div>
         <div class="admin-row-meta">${s.city ? s.city.label : 'Без города'} · ${s.category ? s.category.label : s.categoryId} → ${s.subcategory ? s.subcategory.label : s.subcategoryId}</div>
+        <div class="admin-row-meta" style="margin-top:2px;">${submitterLine(s)}</div>
         <div class="admin-row-badges">
           <span class="mini-badge">${statusLabel(s.status)}</span>
           ${s.pendingChanges ? `<span class="mini-badge on">Правка на проверке</span>` : ''}
