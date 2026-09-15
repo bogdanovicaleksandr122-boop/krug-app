@@ -1238,7 +1238,37 @@ function showToast(msg){
 }
 
 /* ---------- personal cabinet ("Мои услуги") ---------- */
-function openCabinet(){ renderCabinetScreen(); showScreen('cabinet'); closeMenu(); }
+async function openCabinet(){
+  closeMenu();
+  showScreen('cabinet');
+  await loadMyListingsFromServer();
+  renderCabinetScreen();
+}
+
+// Подгружает актуальный список анкет владельца с сервера (включая статус и одобрение админом)
+async function loadMyListingsFromServer(){
+  if(!tgInitData){
+    document.getElementById('cabinet-items').innerHTML = `<div class="empty-state">
+        <div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">${ICONS.briefcase}</svg></div>
+        <div class="empty-title">Доступно только в Telegram</div>
+        <div class="empty-text">Откройте приложение через кнопку меню бота, чтобы увидеть свои анкеты.</div>
+      </div>`;
+    return;
+  }
+  document.getElementById('cabinet-items').innerHTML = `<div style="padding:20px; color:var(--muted); font-size:13px;">Загрузка…</div>`;
+  try {
+    const mine = await apiRequest('/api/me/specialists');
+    MY_LISTING_IDS = new Set();
+    mine.forEach(raw => {
+      const spec = mapApiSpecialist(raw);
+      ALL_SPECIALISTS[spec.id] = spec;
+      MY_LISTING_IDS.add(spec.id);
+    });
+  } catch(e){
+    console.error(e);
+    showToast('Не удалось загрузить ваши анкеты');
+  }
+}
 function statusChipHtml(s){
   if(s.status === 'pending') return `<span class="status-chip">На проверке</span>`;
   if(s.status === 'rejected') return `<span class="status-chip rejected">Отклонено</span>`;
