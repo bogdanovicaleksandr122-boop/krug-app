@@ -60,13 +60,21 @@ a:hover{color:var(--muted);}
 .iconbtn:active{transform:scale(.88);}
 .iconbtn svg{width:20px; height:20px; stroke-width:2.4;}
 .city-pill{
-  display:flex; align-items:center; gap:6px; border:2.5px solid var(--ink); border-radius:999px;
-  padding:10px 16px; font-size:12.5px; font-weight:800; letter-spacing:.02em; cursor:pointer; background:var(--paper);
-  transition:transform .25s var(--ease), background .2s ease, color .2s ease;
+  width:44px; height:44px; padding:0; border-radius:999px; overflow:hidden;
+  display:flex; align-items:center; gap:6px; border:2.5px solid var(--ink); justify-content:center;
+  font-size:12.5px; font-weight:800; letter-spacing:.02em; cursor:pointer; background:var(--paper);
+  transition:width .38s var(--ease-soft), background .2s ease, color .2s ease, padding .38s var(--ease-soft);
+  flex-shrink:0;
 }
 .city-pill:hover{background:var(--ink); color:var(--paper);}
 .city-pill:active{transform:scale(.94);}
 .city-pill svg{width:11px; height:11px;}
+.city-pill .pin-icon{width:19px; height:19px; flex-shrink:0;}
+.city-pill .city-pill-text{white-space:nowrap; opacity:0; transition:opacity .2s ease;}
+.city-pill .chevron-icon{opacity:0; transition:opacity .2s ease; margin-left:auto; flex-shrink:0;}
+.city-pill.expanded{width:190px; padding:0 16px; justify-content:flex-start;}
+.city-pill.expanded .city-pill-text{opacity:1;}
+.city-pill.expanded .chevron-icon{opacity:1;}
 .step-label{font-size:11px; font-weight:800; letter-spacing:.06em; color:var(--muted);}
 
 .screen{position:relative;}
@@ -304,9 +312,10 @@ textarea.field-input{resize:vertical; min-height:80px; line-height:1.4;}
       <div class="iconbtn" onclick="openMenu()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
       </div>
-      <div class="city-pill" onclick="openCityModal()">
-        <span id="city-label">СОФИЯ</span>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      <div class="city-pill" id="city-pill" onclick="openCityModal()">
+        <svg class="pin-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+        <span class="city-pill-text" id="city-label">СОФИЯ</span>
+        <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
       </div>
     </div>
 
@@ -408,7 +417,7 @@ textarea.field-input{resize:vertical; min-height:80px; line-height:1.4;}
     </div>
 
     <div class="avatar-wrap">
-      <div class="profile-avatar"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg></div>
+      <div class="profile-avatar" id="profile-avatar"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg></div>
       <button class="profile-fav-btn" id="profile-fav-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 00-7.8 0L12 5.6l-1-1a5.5 5.5 0 10-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 000-7.8z"/></svg></button>
     </div>
     <div class="profile-name" id="p-name">—</div>
@@ -485,6 +494,18 @@ textarea.field-input{resize:vertical; min-height:80px; line-height:1.4;}
     <div id="claim-content"></div>
   </div>
 
+  <!-- ================= EDIT OWN LISTING SHEET ================= -->
+  <div class="overlay" id="editOwnOverlay" onclick="closeEditOwnSheet()"></div>
+  <div class="sheet" id="editOwnSheet" style="max-height:86%;">
+    <div class="sheet-header">
+      <div class="sheet-title">Редактировать анкету</div>
+      <div class="iconbtn" onclick="closeEditOwnSheet()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </div>
+    </div>
+    <div id="edit-own-content"></div>
+  </div>
+
   <div class="toast" id="toast"></div>
 </div>
 <script>
@@ -553,6 +574,10 @@ async function apiRequest(path, options){
 }
 
 // Приводим данные специалиста от сервера к тому виду, который ждёт остальной код прототипа
+function avatarHtml(spec){
+  if(!spec.photoFileId) return `<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>`;
+  return `<img src="${API_BASE}/api/specialists/${spec.id}/photo" alt="" style="width:100%; height:100%; object-fit:cover; border-radius:50%;" onerror="this.style.display='none'; this.insertAdjacentHTML('afterend', '<svg viewBox=\\'0 0 24 24\\' fill=\\'currentColor\\'><circle cx=\\'12\\' cy=\\'8\\' r=\\'4\\'/><path d=\\'M4 20c0-4.4 3.6-7 8-7s8 2.6 8 7\\'/></svg>')">`;
+}
 function mapApiSpecialist(s){
   return {
     id: s.id,
@@ -575,7 +600,8 @@ function mapApiSpecialist(s){
     rejectionReason: s.rejectionReason,
     verified: !!s.verified,
     pro: !!s.pro,
-    boosted: !!s.boosted
+    boosted: !!s.boosted,
+    photoFileId: s.photoFileId || null
   };
 }
 
@@ -736,7 +762,7 @@ function renderSpecialistCard(spec, returnTo){
   <div class="spec-card">
     ${spec.boosted ? `<div class="top-ribbon">ТОП</div>` : ''}
     <div class="spec-card-top" onclick="openProfileById(${spec.id}, '${returnTo}')">
-      <div class="avatar"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg></div>
+      <div class="avatar">${avatarHtml(spec)}</div>
       <div class="spec-info">
         <div class="spec-name-row">
           <span class="spec-name">${spec.name}</span>
@@ -819,6 +845,9 @@ function openProfileById(id, returnTo){
 function goBackFromProfile(){ showScreen(profileReturnScreen); }
 function fillProfile(spec){
   currentProfileId = spec.id;
+  document.getElementById('profile-avatar').innerHTML = spec.photoFileId
+    ? `<img src="${API_BASE}/api/specialists/${spec.id}/photo" alt="" style="width:100%; height:100%; object-fit:cover; border-radius:50%;" onerror="this.parentElement.innerHTML='<svg viewBox=\\'0 0 24 24\\' fill=\\'currentColor\\'><circle cx=\\'12\\' cy=\\'8\\' r=\\'4\\'/><path d=\\'M4 20c0-4.4 3.6-7 8-7s8 2.6 8 7\\'/></svg>'">`
+    : `<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>`;
   document.getElementById('p-name').textContent = spec.name + ' (' + spec.langs.join('/') + ')';
   document.getElementById('p-role').textContent = spec.role;
   document.getElementById('p-verified').innerHTML = renderProfileBadges(spec);
@@ -904,10 +933,15 @@ function openPicker(title, options, activeId, onSelect){
   document.getElementById('pickerSheet').classList.add('open');
   document.getElementById('pickerOverlay').classList.add('open');
 }
-function closePicker(){ document.getElementById('pickerSheet').classList.remove('open'); document.getElementById('pickerOverlay').classList.remove('open'); }
+function closePicker(){
+  document.getElementById('pickerSheet').classList.remove('open');
+  document.getElementById('pickerOverlay').classList.remove('open');
+  document.getElementById('city-pill').classList.remove('expanded');
+}
 function selectPickerOption(id){ closePicker(); if(pickerOnSelect) pickerOnSelect(id); }
 
 function openCityModal(){
+  document.getElementById('city-pill').classList.add('expanded');
   openPicker('Город (Болгария)', CITIES, currentCity, (id) => {
     currentCity = id;
     document.getElementById('city-label').textContent = cityLabel().toUpperCase();
@@ -1280,7 +1314,7 @@ function cabinetCardHtml(s){
   <div class="spec-card">
     ${s.boosted ? `<div class="top-ribbon">ТОП</div>` : ''}
     <div class="spec-card-top" ${clickable ? `onclick="openProfileById(${s.id}, 'cabinet')" style="cursor:pointer;"` : `style="cursor:default;"`}>
-      <div class="avatar"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg></div>
+      <div class="avatar">${avatarHtml(s)}</div>
       <div class="spec-info">
         <div class="spec-name-row">
           <span class="spec-name">${s.name}</span>
@@ -1298,18 +1332,120 @@ function cabinetCardHtml(s){
         <button class="subcat-chip" onclick="openMoneySheet(${s.id}, 'boost')">${s.boosted ? 'Буст активен' : 'Забустить'}</button>
       </div>
     ` : ''}
+    ${s.verified ? `
+      <div class="cabinet-actions" style="margin-top:8px;">
+        <button class="subcat-chip" onclick="openEditOwnSheet(${s.id})">Редактировать</button>
+        <button class="subcat-chip" onclick="deleteOwnListing(${s.id})" style="color:#c0392b; border-color:#c0392b;">Удалить</button>
+      </div>
+    ` : ''}
   </div>`;
 }
 function renderCabinetScreen(){
   const specs = Array.from(MY_LISTING_IDS).map(id => ALL_SPECIALISTS[id]).filter(Boolean);
+  const addButton = `<button class="btn-full" style="margin-bottom:16px;" onclick="openAddForm()">+ Добавить анкету</button>`;
   document.getElementById('cabinet-items').innerHTML = specs.length
-    ? specs.map(s => cabinetCardHtml(s)).join('')
+    ? addButton + specs.map(s => cabinetCardHtml(s)).join('')
     : `<div class="empty-state">
         <div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">${ICONS.briefcase}</svg></div>
         <div class="empty-title">Пока нет своих анкет</div>
         <div class="empty-text">Добавьте анкету о себе или подтвердите существующую — они появятся здесь.</div>
         <button class="btn-full" style="margin-top:16px;" onclick="openAddForm()">Добавить специалиста</button>
       </div>`;
+}
+
+/* ---------- владелец: редактирование/удаление своей анкеты ---------- */
+let editOwnId = null;
+let editOwnPhotoFile = null;
+
+async function deleteOwnListing(id){
+  if(!confirm('Удалить анкету безвозвратно? Отменить это будет нельзя.')) return;
+  try {
+    await apiRequest(`/api/me/specialists/${id}`, {method: 'DELETE'});
+    MY_LISTING_IDS.delete(id);
+    delete ALL_SPECIALISTS[id];
+    renderCabinetScreen();
+    showToast('Анкета удалена');
+  } catch(e){
+    showToast('Не удалось удалить анкету');
+  }
+}
+
+function openEditOwnSheet(id){
+  editOwnId = id;
+  editOwnPhotoFile = null;
+  const s = ALL_SPECIALISTS[id];
+  document.getElementById('edit-own-content').innerHTML = editOwnFormHtml(s);
+  document.getElementById('editOwnSheet').classList.add('open');
+  document.getElementById('editOwnOverlay').classList.add('open');
+}
+function closeEditOwnSheet(){
+  document.getElementById('editOwnSheet').classList.remove('open');
+  document.getElementById('editOwnOverlay').classList.remove('open');
+}
+function editOwnFormHtml(s){
+  return `
+    <div class="note-text">Правки уходят на проверку модератору — пока их не одобрят, в общем каталоге показывается прежняя версия анкеты.</div>
+    <div class="field-label">ФОТО</div>
+    <div style="display:flex; align-items:center; gap:14px; margin-bottom:6px;">
+      <div class="avatar" style="width:64px; height:64px; flex-shrink:0;">${avatarHtml(s)}</div>
+      <input type="file" accept="image/*" id="eo-photo" onchange="editOwnPhotoFile=this.files[0]">
+    </div>
+    <div class="field-label">ИМЯ ИЛИ НАЗВАНИЕ</div>
+    <input class="field-input" type="text" id="eo-name" value="${escapeAttr(s.name)}">
+    <div class="field-label">ГОРОД</div>
+    <select class="field-input" id="eo-city">
+      ${CITIES.map(c => `<option value="${c.id}" ${c.id===s.cityId?'selected':''}>${c.label}</option>`).join('')}
+    </select>
+    <div class="field-label">ОБО МНЕ</div>
+    <textarea class="field-input" id="eo-about" style="min-height:70px;">${escapeAttr(s.about)}</textarea>
+    <div class="field-label">УСЛУГИ (через запятую)</div>
+    <input class="field-input" id="eo-services" value="${escapeAttr(s.services.join(', '))}">
+    <div class="field-label">ЯЗЫКИ (через запятую)</div>
+    <input class="field-input" id="eo-langs" value="${escapeAttr(s.langs.join(', '))}">
+    <div class="field-label">TELEGRAM</div>
+    <input class="field-input" id="eo-telegram" value="${escapeAttr(s.contacts.telegram)}">
+    <div class="field-label">ТЕЛЕФОН</div>
+    <input class="field-input" id="eo-phone" value="${escapeAttr(s.contacts.phone)}">
+    <div class="field-label">INSTAGRAM</div>
+    <input class="field-input" id="eo-instagram" value="${escapeAttr(s.contacts.instagram)}">
+    <div class="field-label">САЙТ</div>
+    <input class="field-input" id="eo-website" value="${escapeAttr(s.contacts.website)}">
+    <div class="field-label">АДРЕС</div>
+    <input class="field-input" id="eo-address" value="${escapeAttr(s.location ? s.location.address : '')}">
+    <button class="btn-full" style="margin-top:20px;" onclick="saveEditOwnForm()">Отправить на проверку</button>
+  `;
+}
+async function saveEditOwnForm(){
+  const payload = {
+    name: document.getElementById('eo-name').value.trim(),
+    cityId: document.getElementById('eo-city').value,
+    about: document.getElementById('eo-about').value.trim(),
+    services: document.getElementById('eo-services').value.split(',').map(s=>s.trim()).filter(Boolean),
+    langs: document.getElementById('eo-langs').value.split(',').map(s=>s.trim()).filter(Boolean),
+    contactsTelegram: document.getElementById('eo-telegram').value.trim() || null,
+    contactsPhone: document.getElementById('eo-phone').value.trim() || null,
+    contactsInstagram: document.getElementById('eo-instagram').value.trim() || null,
+    contactsWebsite: document.getElementById('eo-website').value.trim() || null,
+    locationAddress: document.getElementById('eo-address').value.trim() || null,
+  };
+  if(!payload.name){ showToast('Укажите имя или название'); return; }
+  try {
+    await apiRequest(`/api/me/specialists/${editOwnId}`, {
+      method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload)
+    });
+    if(editOwnPhotoFile){
+      const bytes = await editOwnPhotoFile.arrayBuffer();
+      await apiRequest(`/api/me/specialists/${editOwnId}/photo`, {
+        method: 'POST', headers: {'Content-Type': editOwnPhotoFile.type || 'image/jpeg'}, body: bytes
+      });
+    }
+    closeEditOwnSheet();
+    showToast('Правки отправлены на проверку');
+    await loadMyListingsFromServer();
+    renderCabinetScreen();
+  } catch(e){
+    showToast('Не удалось сохранить: ' + e.message);
+  }
 }
 
 /* ---------- PRO / Boost purchase ---------- */
