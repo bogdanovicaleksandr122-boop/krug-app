@@ -384,20 +384,6 @@ textarea.field-input{resize:vertical; min-height:80px; line-height:1.4;}
     <div id="cabinet-items"></div>
   </div>
 
-  <!-- ================= ADMIN PANEL ================= -->
-  <div class="screen" id="screen-admin">
-    <div class="topbar">
-      <div class="iconbtn" onclick="goHome()">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-      </div>
-      <div class="iconbtn" onclick="openMenu()">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-      </div>
-    </div>
-    <div class="list-title">ЗАЯВКИ НА ПРОВЕРКЕ</div>
-    <div id="admin-items"></div>
-  </div>
-
   <!-- ================= PRO/BOOST PURCHASE SHEET ================= -->
   <div class="overlay" id="moneyOverlay" onclick="closeMoneySheet()"></div>
   <div class="sheet" id="moneySheet">
@@ -473,12 +459,6 @@ textarea.field-input{resize:vertical; min-height:80px; line-height:1.4;}
     <div class="menu-item" onclick="showToast('Раздел в разработке'); closeMenu();">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09a1.65 1.65 0 00-1-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>Настройки
     </div>
-    <div class="menu-divider">
-      <div class="menu-divider-label">ДЛЯ ВЛАДЕЛЬЦА (ВРЕМЕННО ЗДЕСЬ)</div>
-      <div class="menu-item" style="border-bottom:none;" onclick="openAdmin();">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>Админ-панель
-      </div>
-    </div>
   </div>
 
   <!-- ================= REUSABLE PICKER SHEET ================= -->
@@ -549,7 +529,6 @@ let CITIES = [];
 let CATEGORIES = [];
 let SPECIALISTS = {};
 let ALL_SPECIALISTS = {};
-let adminToken = null;
 
 // Данные, которые Telegram передаёт вместе с открытием приложения.
 // window.Telegram.WebApp появляется благодаря подключённому выше telegram-web-app.js.
@@ -996,6 +975,7 @@ function confirmClaimCode(){
 }
 
 /* ---------- add-specialist form ---------- */
+let claimResultMessage = null;
 function resetAddForm(){
   addForm = {
     step: 1,
@@ -1131,17 +1111,22 @@ function stepReviewHtml(){
       <div class="review-row"><span class="review-row-label">Услуги</span><span class="review-row-value">${addForm.services.filter(s => s.trim()).join(', ') || '—'}</span></div>
       <div class="review-row"><span class="review-row-label">Контакты</span><span class="review-row-value">${filledContacts.map(t => CONTACT_LABELS[t]).join(', ') || '—'}</span></div>
       <div class="review-row"><span class="review-row-label">Адрес</span><span class="review-row-value">${addForm.hasLocation ? (addForm.address || '—') : 'Без адреса'}</span></div>
-      <div class="review-row"><span class="review-row-label">Подтверждение</span><span class="review-row-value">${addForm.claimSelf ? (addForm.contacts.telegram.trim() ? 'Автоматически по Telegram' : 'Не подтверждено пока') : 'Не заявлено'}</span></div>
+      <div class="review-row"><span class="review-row-label">Подтверждение</span><span class="review-row-value">${addForm.claimSelf ? (addForm.contacts.telegram.trim() ? 'Проверим автоматически по Telegram' : 'Без Telegram — проверит модератор') : 'Не заявлено'}</span></div>
     </div>
     <div class="note-text">После отправки анкета попадёт на проверку модератору. Обычно это занимает меньше суток.</div>
   `;
 }
 function stepSuccessHtml(){
-  const autoVerified = addForm.claimSelf && addForm.contacts.telegram.trim().length > 0;
+  let claimNote = '';
+  if(addForm.claimSelf){
+    claimNote = claimResultMessage
+      ? ` ${claimResultMessage}`
+      : ' Так как Telegram совпадает с вашим аккаунтом, анкета сразу отмечена как подтверждённая.';
+  }
   return `<div class="success-wrap">
     <div class="success-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${CHECK}</svg></div>
     <div class="success-title">Анкета отправлена</div>
-    <div class="success-text">Мы проверим её и опубликуем в каталоге. Обычно это занимает меньше суток.${autoVerified ? ' Так как Telegram совпадает с вашим аккаунтом, анкета сразу будет отмечена как подтверждённая.' : ''}</div>
+    <div class="success-text">Мы проверим её и опубликуем в каталоге. Обычно это занимает меньше суток.${claimNote}</div>
   </div>`;
 }
 
@@ -1197,7 +1182,27 @@ async function createSubmissionFromForm(){
 
   const spec = mapApiSpecialist(created);
   ALL_SPECIALISTS[spec.id] = spec;
-  if(addForm.claimSelf) MY_LISTING_IDS.add(spec.id);
+
+  // Если человек отметил «это моя анкета» — сразу пробуем подтвердить по-настоящему
+  // тем же способом, что и на опубликованной карточке (сверка по Telegram-аккаунту на сервере).
+  claimResultMessage = null;
+  if(addForm.claimSelf){
+    if(!tgInitData){
+      claimResultMessage = 'Автоматическое подтверждение доступно только при открытии приложения через Telegram — откройте его через кнопку меню бота.';
+    } else {
+      try {
+        const result = await apiRequest(`/api/me/specialists/${spec.id}/claim`, {method: 'POST'});
+        if(result.verified){
+          spec.verified = true;
+          MY_LISTING_IDS.add(spec.id);
+        } else {
+          claimResultMessage = result.message || 'Автоматическая проверка не прошла — анкету проверит модератор вручную.';
+        }
+      } catch(e){
+        claimResultMessage = 'Не удалось проверить владение анкетой автоматически — модератор проверит её вручную.';
+      }
+    }
+  }
   return spec;
 }
 function backAddStep(){
@@ -1275,119 +1280,6 @@ function renderCabinetScreen(){
         <div class="empty-text">Добавьте анкету о себе или подтвердите существующую — они появятся здесь.</div>
         <button class="btn-full" style="margin-top:16px;" onclick="openAddForm()">Добавить специалиста</button>
       </div>`;
-}
-
-/* ---------- admin panel ---------- */
-let adminPending = [];
-
-function openAdmin(){
-  showScreen('admin');
-  closeMenu();
-  if(adminToken) loadAdminPending(); else renderAdminLogin();
-}
-function renderAdminLogin(){
-  document.getElementById('admin-items').innerHTML = `
-    <div class="field-label">ЛОГИН</div>
-    <input class="field-input" type="text" id="admin-login-username" placeholder="Логин">
-    <div class="field-label">ПАРОЛЬ</div>
-    <input class="field-input" type="password" id="admin-login-password" placeholder="Пароль">
-    <button class="btn-full" style="margin-top:14px;" onclick="submitAdminLogin()">Войти</button>
-  `;
-}
-async function submitAdminLogin(){
-  const username = document.getElementById('admin-login-username').value.trim();
-  const password = document.getElementById('admin-login-password').value;
-  try {
-    const res = await apiRequest('/api/admin/login', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({username, password})
-    });
-    adminToken = res.token;
-    loadAdminPending();
-  } catch(e) {
-    showToast('Неверный логин или пароль');
-  }
-}
-async function loadAdminPending(){
-  document.getElementById('admin-items').innerHTML = `<div style="padding:20px; color:var(--muted); font-size:13px;">Загрузка…</div>`;
-  try {
-    const pending = await apiRequest('/api/admin/pending', {
-      headers: {'Authorization': 'Bearer ' + adminToken}
-    });
-    adminPending = pending.map(mapApiSpecialist);
-    renderAdminScreen();
-  } catch(e) {
-    adminToken = null;
-    renderAdminLogin();
-    showToast('Сессия истекла, войдите снова');
-  }
-}
-function adminCardHtml(s){
-  const cat = CATEGORIES.find(c => c.id === s.catId);
-  const sub = cat.subcats.find(x => x.id === s.subcatId);
-  const contactsList = CONTACT_ORDER.filter(t => s.contacts[t]).map(t => `${CONTACT_LABELS[t]}: ${s.contacts[t]}`).join(' · ') || '—';
-  const city = CITIES.find(c => c.id === s.cityId);
-  return `
-  <div class="spec-card">
-    <div class="admin-detail-row"><span>Категория</span><span>${cat.label} → ${sub.label}</span></div>
-    <div class="admin-detail-row"><span>Имя</span><span>${s.name}</span></div>
-    <div class="admin-detail-row"><span>Город</span><span>${city ? city.label : '—'}</span></div>
-    <div class="admin-detail-row"><span>Языки</span><span>${s.langs.join('/') || '—'}</span></div>
-    <div class="admin-detail-row"><span>Услуги</span><span>${s.services.join(', ') || '—'}</span></div>
-    <div class="admin-detail-row"><span>Контакты</span><span>${contactsList}</span></div>
-    <div class="admin-detail-row"><span>Адрес</span><span>${s.location ? s.location.address : 'Без адреса'}</span></div>
-    <div class="admin-detail-row"><span>Заявлено «это я»</span><span>${s.verified ? 'Да, авто-подтверждено по Telegram' : 'Нет'}</span></div>
-    <div class="admin-actions">
-      <button class="btn-reject" onclick="toggleRejectBox(${s.id})">Отклонить</button>
-      <button class="btn-approve" onclick="approveSubmission(${s.id})">Одобрить</button>
-    </div>
-    <div class="reject-box" id="reject-box-${s.id}" style="display:none;">
-      <textarea class="field-input" id="reject-reason-${s.id}" placeholder="Причина отказа (покажем заявителю)" style="margin-top:10px; min-height:60px;"></textarea>
-      <button class="btn-full" style="margin-top:8px;" onclick="confirmReject(${s.id})">Подтвердить отказ</button>
-    </div>
-  </div>`;
-}
-function renderAdminScreen(){
-  document.getElementById('admin-items').innerHTML = adminPending.length
-    ? adminPending.map(s => adminCardHtml(s)).join('')
-    : `<div class="empty-state">
-        <div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">${CHECK}</svg></div>
-        <div class="empty-title">Нет заявок на проверке</div>
-        <div class="empty-text">Новые анкеты появятся здесь сразу после отправки формы «Добавить специалиста».</div>
-      </div>`;
-}
-function toggleRejectBox(id){
-  const box = document.getElementById('reject-box-' + id);
-  box.style.display = box.style.display === 'block' ? 'none' : 'block';
-}
-async function approveSubmission(id){
-  try {
-    await apiRequest(`/api/admin/specialists/${id}/approve`, {
-      method: 'POST',
-      headers: {'Authorization': 'Bearer ' + adminToken}
-    });
-    adminPending = adminPending.filter(s => s.id !== id);
-    renderAdminScreen();
-    showToast('Анкета опубликована');
-  } catch(e) {
-    showToast('Не удалось одобрить анкету');
-  }
-}
-async function confirmReject(id){
-  const reason = document.getElementById('reject-reason-' + id).value.trim();
-  try {
-    await apiRequest(`/api/admin/specialists/${id}/reject`, {
-      method: 'POST',
-      headers: {'Authorization': 'Bearer ' + adminToken, 'Content-Type': 'application/json'},
-      body: JSON.stringify({reason})
-    });
-    adminPending = adminPending.filter(s => s.id !== id);
-    renderAdminScreen();
-    showToast('Анкета отклонена');
-  } catch(e) {
-    showToast('Не удалось отклонить анкету');
-  }
 }
 
 /* ---------- PRO / Boost purchase ---------- */
