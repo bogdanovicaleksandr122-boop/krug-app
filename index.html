@@ -254,7 +254,7 @@
 
     <div class="search-wrap">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-      <input type="text" placeholder="Поиск услуг (например, «врач», «ремонт»)">
+      <input type="text" id="home-search-input" placeholder="Поиск услуг (например, «врач», «ремонт»)" onkeydown="if(event.key === 'Enter'){ performSearch(this.value); }">
     </div>
 
     <div class="section-label">КАТЕГОРИИ</div>
@@ -628,13 +628,44 @@ function openSubcategory(catId, subId){
   renderList(specs, 'list');
   showScreen('list');
 }
-function renderList(specs, returnTo){
+function renderList(specs, returnTo, emptyHtml){
   lastListSpecs = specs; lastListReturnTo = returnTo;
   document.getElementById('list-items').innerHTML = specs.length
     ? specs.map(s => renderSpecialistCard(s, returnTo)).join('')
-    : emptyStateHtml();
+    : (emptyHtml || emptyStateHtml());
 }
 function renderCurrentList(){ renderList(lastListSpecs, lastListReturnTo); }
+
+/* ---------- поиск ---------- */
+async function performSearch(rawQuery){
+  const query = (rawQuery || '').trim();
+  if(!query) return;
+
+  document.getElementById('list-title').textContent = 'ПОИСК: ' + query.toUpperCase();
+  document.getElementById('list-items').innerHTML = `<div style="padding:20px; color:var(--muted); font-size:13px;">Ищем…</div>`;
+  showScreen('list');
+
+  try {
+    const params = new URLSearchParams({search: query});
+    if(isCityAvailable()) params.set('cityId', currentCity);
+    const results = await apiRequest('/api/specialists?' + params.toString());
+    const specs = results.map(mapApiSpecialist);
+    specs.forEach(s => { ALL_SPECIALISTS[s.id] = s; });
+
+    renderList(specs, 'list', `
+      <div class="empty-state">
+        <div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">${ICONS.gift}</svg></div>
+        <div class="empty-title">Ничего не найдено</div>
+        <div class="empty-text">Попробуйте другой запрос или посмотрите категории на главной.</div>
+      </div>`);
+  } catch(e) {
+    document.getElementById('list-items').innerHTML = `
+      <div class="empty-state">
+        <div class="empty-title">Не удалось выполнить поиск</div>
+        <div class="empty-text">Проверьте подключение к интернету и попробуйте ещё раз.</div>
+      </div>`;
+  }
+}
 function emptyStateHtml(){
   const text = !isCityAvailable()
     ? 'Мы начинаем с Софии и скоро добавим другие города.'
