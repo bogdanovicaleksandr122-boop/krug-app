@@ -740,7 +740,20 @@ function cityLabel(){ return CITIES.find(c => c.id === currentCity).label; }
 function isCityAvailable(){ return true; }
 const COUNTRY_LABELS_RU = {Bulgaria: 'Болгария', Poland: 'Польша'};
 function countryLabelRu(country){ return COUNTRY_LABELS_RU[country] || country; }
-function escapeAttr(str){ return (str || '').replace(/"/g, '&quot;'); }
+// Полноценное HTML-экранирование — раньше здесь была функция, которая экранировала
+// только кавычки, и её везде использовали для вставки данных, введённых специалистом
+// (имя, о себе, услуги, контакты), прямо в innerHTML. Это был настоящий хранимый XSS:
+// достаточно было указать в имени или услуге <img src=x onerror="..."> — и код бы
+// выполнился в браузере каждого, кто открыл карточку (а в админке — при простом
+// просмотре анкеты на модерации, ещё до решения одобрить/отклонить).
+function escapeAttr(str){
+  return String(str == null ? '' : str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
 function chevronRight(){ return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${ICONS.chevronRight}</svg>`; }
 function sortForDisplay(specs){
   const boosted = specs.filter(s => s.boosted);
@@ -849,13 +862,13 @@ function renderSpecialistCard(spec, returnTo){
       <div class="avatar">${avatarHtml(spec)}</div>
       <div class="spec-info">
         <div class="spec-name-row">
-          <span class="spec-name">${spec.name}</span>
-          ${spec.langs.map(l => `<span class="lang-tag">${l}</span>`).join('')}
+          <span class="spec-name">${escapeAttr(spec.name)}</span>
+          ${spec.langs.map(l => `<span class="lang-tag">${escapeAttr(l)}</span>`).join('')}
           ${spec.verified ? `<svg class="verified-mini" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">${CHECK}</svg>` : ''}
           ${spec.pro ? `<span class="pro-chip">PRO</span>` : ''}
         </div>
-        <div class="spec-role">${spec.role}</div>
-        <div class="spec-services">${servicesPreview}</div>
+        <div class="spec-role">${escapeAttr(spec.role)}</div>
+        <div class="spec-services">${escapeAttr(servicesPreview)}</div>
         <div class="contact-icons-row">
           ${contactTypes.map(t => `<div class="contact-icon-mini"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ICONS[t]}</svg></div>`).join('')}
         </div>
@@ -937,7 +950,7 @@ function fillProfile(spec){
   document.getElementById('p-verified').innerHTML = renderProfileBadges(spec);
   document.getElementById('p-about').textContent = spec.about;
   document.getElementById('tab-services').innerHTML = spec.services.map(item => `
-    <div class="service-row"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${CHECK}</svg>${item}</div>
+    <div class="service-row"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${CHECK}</svg>${escapeAttr(item)}</div>
   `).join('');
   document.getElementById('p-contacts').innerHTML = renderContactsBlock(spec);
   document.getElementById('p-location').innerHTML = locationBlockHtml(spec);
@@ -1009,7 +1022,7 @@ function renderContactsBlock(spec){
     return `
     <div class="contact-row ${isTg ? '' : 'tappable'}" ${isTg ? '' : `onclick="openContact('${t}','${encodedValue}')"`}>
       <div class="contact-icon"><svg viewBox="0 0 24 24" fill="${isTg ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${ICONS[t]}</svg></div>
-      <div class="contact-text-wrap"><div class="contact-label">${CONTACT_LABELS[t]}</div><div class="contact-value">${spec.contacts[t]}</div></div>
+      <div class="contact-text-wrap"><div class="contact-label">${CONTACT_LABELS[t]}</div><div class="contact-value">${escapeAttr(spec.contacts[t])}</div></div>
       ${isTg ? `<button class="contact-action" onclick="openContact('telegram','${encodedValue}')">Написать в Telegram</button>` : ''}
     </div>`;
   }).join('');
@@ -1022,7 +1035,7 @@ function locationBlockHtml(spec){
     <div class="map-preview" onclick="openMap('${encodedAddress}')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${ICONS.pin}</svg>
     </div>
-    <div class="location-address">${spec.location.address}</div>`;
+    <div class="location-address">${escapeAttr(spec.location.address)}</div>`;
 }
 function setProfileFavButton(id){
   const btn = document.getElementById('profile-fav-btn');
@@ -1355,7 +1368,7 @@ function stepInfoHtml(){
     </div>
 
     <div class="field-label">ОБО МНЕ</div>
-    <textarea class="field-input" placeholder="Коротко об опыте и подходе к работе" oninput="addForm.about=this.value">${addForm.about}</textarea>
+    <textarea class="field-input" placeholder="Коротко об опыте и подходе к работе" oninput="addForm.about=this.value">${escapeAttr(addForm.about)}</textarea>
 
     <div class="field-label">УСЛУГИ</div>
     ${addForm.services.map((val,i) => `
@@ -1422,12 +1435,12 @@ function stepReviewHtml(){
     <div class="field-label">ПРОВЕРЬТЕ ДАННЫЕ</div>
     <div class="review-block">
       <div class="review-row"><span class="review-row-label">Категория</span><span class="review-row-value">${cat.label} → ${sub.label}</span></div>
-      <div class="review-row"><span class="review-row-label">Имя</span><span class="review-row-value">${addForm.name || '—'}</span></div>
+      <div class="review-row"><span class="review-row-label">Имя</span><span class="review-row-value">${escapeAttr(addForm.name) || '—'}</span></div>
       <div class="review-row"><span class="review-row-label">Город</span><span class="review-row-value">${CITIES.find(c => c.id === addForm.city).label}</span></div>
-      <div class="review-row"><span class="review-row-label">Языки</span><span class="review-row-value">${Array.from(addForm.langs).join('/') || '—'}</span></div>
-      <div class="review-row"><span class="review-row-label">Услуги</span><span class="review-row-value">${addForm.services.filter(s => s.trim()).join(', ') || '—'}</span></div>
+      <div class="review-row"><span class="review-row-label">Языки</span><span class="review-row-value">${escapeAttr(Array.from(addForm.langs).join('/')) || '—'}</span></div>
+      <div class="review-row"><span class="review-row-label">Услуги</span><span class="review-row-value">${escapeAttr(addForm.services.filter(s => s.trim()).join(', ')) || '—'}</span></div>
       <div class="review-row"><span class="review-row-label">Контакты</span><span class="review-row-value">${filledContacts.map(t => CONTACT_LABELS[t]).join(', ') || '—'}</span></div>
-      <div class="review-row"><span class="review-row-label">Адрес</span><span class="review-row-value">${addForm.hasLocation ? (addForm.address || '—') : 'Без адреса'}</span></div>
+      <div class="review-row"><span class="review-row-label">Адрес</span><span class="review-row-value">${addForm.hasLocation ? (escapeAttr(addForm.address) || '—') : 'Без адреса'}</span></div>
       <div class="review-row"><span class="review-row-label">Подтверждение</span><span class="review-row-value">${addForm.claimSelf ? (addForm.contacts.telegram.trim() ? 'Проверим автоматически по Telegram' : 'Без Telegram — проверит модератор') : 'Не заявлено'}</span></div>
     </div>
     <div class="note-text">После отправки анкета попадёт на проверку модератору. Обычно это занимает меньше суток.</div>
@@ -1600,15 +1613,15 @@ function cabinetCardHtml(s){
       <div class="avatar">${avatarHtml(s)}</div>
       <div class="spec-info">
         <div class="spec-name-row">
-          <span class="spec-name">${s.name}</span>
+          <span class="spec-name">${escapeAttr(s.name)}</span>
           ${s.verified ? `<svg class="verified-mini" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">${CHECK}</svg>` : ''}
           ${s.pro ? `<span class="pro-chip">PRO</span>` : ''}
         </div>
-        <div class="spec-role">${s.role}</div>
+        <div class="spec-role">${escapeAttr(s.role)}</div>
       </div>
     </div>
     <div style="margin-top:10px;">${statusChipHtml(s)}</div>
-    ${s.status === 'rejected' ? `<div class="note-text" style="margin-top:8px;">Причина: ${s.rejectionReason}</div>` : ''}
+    ${s.status === 'rejected' ? `<div class="note-text" style="margin-top:8px;">Причина: ${escapeAttr(s.rejectionReason)}</div>` : ''}
     ${s.status === 'published' ? `
       <div class="cabinet-actions">
         <button class="subcat-chip" onclick="openMoneySheet(${s.id}, 'pro')">${s.pro ? 'PRO подключён' : 'Оформить PRO'}</button>
