@@ -485,6 +485,9 @@ textarea.field-input{resize:vertical; min-height:80px; line-height:1.4;}
       <div class="iconbtn" onclick="goBackFromProfile()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
       </div>
+      <div class="iconbtn" onclick="shareSpecialist()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="10.6" x2="15.4" y2="6.4"/><line x1="8.6" y1="13.4" x2="15.4" y2="17.6"/></svg>
+      </div>
       <div class="iconbtn" onclick="openMenu()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
       </div>
@@ -676,6 +679,7 @@ function mapApiSpecialist(s){
     cityId: s.cityId,
     status: s.status,
     rejectionReason: s.rejectionReason,
+    editRejectionReason: s.editRejectionReason,
     verified: !!s.verified,
     pro: !!s.pro,
     boosted: !!s.boosted,
@@ -715,7 +719,9 @@ const CONTACT_ORDER = ['telegram','phone','instagram','website'];
 const CONTACT_LABELS = {telegram:'Telegram', phone:'Телефон', instagram:'Instagram', website:'Сайт'};
 
 /* ---------- state ---------- */
-let currentCity = 'sofia';
+let currentCity = localStorage.getItem('krug_city') || 'sofia';
+let currentListCatId = null;
+let currentListSubId = null;
 let openCategoryId = null;
 let favorites = new Set();
 let profileReturnScreen = 'list';
@@ -795,10 +801,14 @@ function renderSubcatPanel(){
 
 /* ---------- list ---------- */
 function openSubcategory(catId, subId){
+  currentListCatId = catId;
+  currentListSubId = subId;
   const cat = CATEGORIES.find(c => c.id === catId);
   const sub = cat.subcats.find(s => s.id === subId);
   document.getElementById('list-title').textContent = sub.label.toUpperCase() + ', ' + cityLabel().toUpperCase();
-  const specs = isCityAvailable() ? sortForDisplay(SPECIALISTS[subId] || []) : [];
+  const bySubcat = SPECIALISTS[subId] || [];
+  const byCity = bySubcat.filter(s => s.cityId === currentCity);
+  const specs = isCityAvailable() ? sortForDisplay(byCity) : [];
   renderList(specs, 'list');
   showScreen('list');
 }
@@ -975,6 +985,27 @@ function renderProfileBadges(spec){
 function openExternalLink(url){
   if(tg && tg.openLink){ tg.openLink(url); }
   else { window.open(url, '_blank'); }
+}
+// Замени на свои значения, если юзернейм бота или короткое имя мини-приложения
+// когда-нибудь изменятся (сейчас: бот @krugspace_bot, ссылка t.me/krugspace_bot/app).
+const SHARE_BOT_USERNAME = 'krugspace_bot';
+const SHARE_APP_NAME = 'app';
+function shareSpecialist(){
+  const spec = ALL_SPECIALISTS[currentProfileId];
+  if(!spec) return;
+  const city = CITIES.find(c => c.id === spec.cityId);
+  const cityText = city ? city.label + (city.country ? ', ' + countryLabelRu(city.country) : '') : '';
+  const deepLink = `https://t.me/${SHARE_BOT_USERNAME}/${SHARE_APP_NAME}?startapp=spec_${spec.id}`;
+  const lines = [
+    `${spec.name} — ${spec.role}`,
+    cityText,
+    spec.about ? spec.about.slice(0, 150) : '',
+    '',
+    'Смотреть анкету в КРУГ 👇'
+  ].filter(Boolean);
+  const shareUrl = 'https://t.me/share/url?url=' + encodeURIComponent(deepLink) + '&text=' + encodeURIComponent(lines.join('\n'));
+  if(tg && tg.openTelegramLink){ tg.openTelegramLink(shareUrl); }
+  else { window.open(shareUrl, '_blank'); }
 }
 function openTelegramProfile(username){
   const clean = String(username || '').replace(/^@/, '').trim();
@@ -1240,8 +1271,12 @@ function openCityModal(){
   document.getElementById('city-pill').classList.add('expanded');
   openLocationPicker(currentCity, (id) => {
     currentCity = id;
+    localStorage.setItem('krug_city', id);
     document.getElementById('city-label').textContent = cityLabel().toUpperCase();
     showToast('Показаны специалисты: ' + cityLabel());
+    if(currentListSubId){
+      openSubcategory(currentListCatId, currentListSubId);
+    }
   });
 }
 
@@ -1622,6 +1657,12 @@ function cabinetCardHtml(s){
     </div>
     <div style="margin-top:10px;">${statusChipHtml(s)}</div>
     ${s.status === 'rejected' ? `<div class="note-text" style="margin-top:8px;">Причина: ${escapeAttr(s.rejectionReason)}</div>` : ''}
+    ${s.editRejectionReason ? `
+      <div class="note-text" style="margin-top:8px;">
+        Ваши последние изменения отклонены модератором. Причина: ${escapeAttr(s.editRejectionReason)}
+        <br><button class="subcat-chip" style="margin-top:8px;" onclick="dismissEditRejection(${s.id})">Понятно</button>
+      </div>
+    ` : ''}
     ${s.status === 'published' ? `
       <div class="cabinet-actions">
         <button class="subcat-chip" onclick="openMoneySheet(${s.id}, 'pro')">${s.pro ? 'PRO подключён' : 'Оформить PRO'}</button>
@@ -1635,6 +1676,15 @@ function cabinetCardHtml(s){
       </div>
     ` : ''}
   </div>`;
+}
+async function dismissEditRejection(id){
+  try {
+    await apiRequest(`/api/me/specialists/${id}/dismiss-edit-rejection`, {method: 'POST'});
+    if(ALL_SPECIALISTS[id]) ALL_SPECIALISTS[id].editRejectionReason = null;
+    renderCabinetScreen();
+  } catch(e){
+    showToast('Не удалось скрыть уведомление');
+  }
 }
 function renderCabinetScreen(){
   const specs = Array.from(MY_LISTING_IDS).map(id => ALL_SPECIALISTS[id]).filter(Boolean);
@@ -1852,7 +1902,25 @@ async function confirmBoost(){
     if(scroll) scroll.innerHTML = '<div style="padding:20px; color:var(--muted); font-size:13px;">Не удалось загрузить данные с сервера. Проверьте подключение и обновите страницу.</div>';
     return;
   }
+
+  // Восстанавливаем город, сохранённый в прошлый раз — если он всё ещё существует
+  // в каталоге (город мог быть удалён/переименован в админке), иначе берём первый доступный.
+  if(!CITIES.find(c => c.id === currentCity)){
+    currentCity = (CITIES[0] || {}).id || 'sofia';
+  }
+  document.getElementById('city-label').textContent = cityLabel().toUpperCase();
+
   renderCategoryScroll();
+
+  // Если приложение открыто по ссылке "поделиться анкетой" (startapp=spec_<id>),
+  // сразу открываем нужную анкету поверх главного экрана.
+  const startParam = tg && tg.initDataUnsafe ? tg.initDataUnsafe.start_param : null;
+  if(startParam && startParam.indexOf('spec_') === 0){
+    const sharedId = Number(startParam.slice(5));
+    if(ALL_SPECIALISTS[sharedId]){
+      openProfileById(sharedId, 'home');
+    }
+  }
 })();
 
 </script>
