@@ -511,7 +511,12 @@ function mapApiSpecialist(s){
   };
 }
 function escapeAttr(str){
-  return String(str == null ? '' : str).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+  return String(str == null ? '' : str)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+    .replace(/'/g,'&#39;');
 }
 let toastTimer;
 function showToast(msg){
@@ -612,7 +617,7 @@ function pendingChangesHtml(s){
   if(!s.pendingChanges) return '';
   const keys = Object.keys(s.pendingChanges);
   const rows = keys.filter(k => k !== 'photoFileId').map(k => `
-    <div class="admin-detail-row"><span>${FIELD_LABELS[k]||k}</span><span>«${oldDiffValue(s,k)}» → «${newDiffValue(s.pendingChanges,k)}»</span></div>
+    <div class="admin-detail-row"><span>${FIELD_LABELS[k]||k}</span><span>«${escapeAttr(oldDiffValue(s,k))}» → «${escapeAttr(newDiffValue(s.pendingChanges,k))}»</span></div>
   `).join('');
   const photoRow = s.pendingChanges.photoFileId ? `
     <div class="admin-detail-row"><span>Фото</span><span>Загружено новое — превью ниже</span></div>
@@ -627,21 +632,21 @@ function pendingChangesHtml(s){
 function adminCardHtml(s){
   const cat = catalogCategories.find(c => c.id === s.catId);
   const sub = cat ? (cat.subcategories||[]).find(x => x.id === s.subcatId) : null;
-  const contactsList = CONTACT_ORDER.filter(t => s.contacts[t]).map(t => `${CONTACT_LABELS[t]}: ${s.contacts[t]}`).join(' · ') || '—';
+  const contactsList = CONTACT_ORDER.filter(t => s.contacts[t]).map(t => `${CONTACT_LABELS[t]}: ${escapeAttr(s.contacts[t])}`).join(' · ') || '—';
   const city = catalogCities.find(c => c.id === s.cityId);
   return `
   <div class="spec-card">
     ${pendingChangesHtml(s)}
-    <div class="admin-detail-row"><span>Категория</span><span>${cat ? cat.label : s.catId} → ${sub ? sub.label : s.subcatId}</span></div>
-    <div class="admin-detail-row"><span>Имя</span><span>${s.name}</span></div>
-    <div class="admin-detail-row"><span>Город</span><span>${city ? city.label : '—'}</span></div>
-    <div class="admin-detail-row"><span>Языки</span><span>${s.langs.join('/') || '—'}</span></div>
-    <div class="admin-detail-row"><span>Услуги</span><span>${s.services.join(', ') || '—'}</span></div>
+    <div class="admin-detail-row"><span>Категория</span><span>${cat ? escapeAttr(cat.label) : escapeAttr(s.catId)} → ${sub ? escapeAttr(sub.label) : escapeAttr(s.subcatId)}</span></div>
+    <div class="admin-detail-row"><span>Имя</span><span>${escapeAttr(s.name)}</span></div>
+    <div class="admin-detail-row"><span>Город</span><span>${city ? escapeAttr(city.label) : '—'}</span></div>
+    <div class="admin-detail-row"><span>Языки</span><span>${escapeAttr(s.langs.join('/')) || '—'}</span></div>
+    <div class="admin-detail-row"><span>Услуги</span><span>${escapeAttr(s.services.join(', ')) || '—'}</span></div>
     <div class="admin-detail-row"><span>Контакты</span><span>${contactsList}</span></div>
-    <div class="admin-detail-row"><span>Адрес</span><span>${s.location ? s.location.address : 'Без адреса'}</span></div>
+    <div class="admin-detail-row"><span>Адрес</span><span>${s.location ? escapeAttr(s.location.address) : 'Без адреса'}</span></div>
     <div class="admin-detail-row"><span>Заявлено «это я»</span><span>${s.verified ? 'Да, авто-подтверждено по Telegram' : 'Нет'}</span></div>
-    <div class="admin-detail-row"><span>№ анкеты</span><span>${s.publicId || '—'}</span></div>
-    <div class="admin-detail-row"><span>Подал</span><span>${s.submitter ? (s.submitter.username ? '@'+s.submitter.username : 'без username') + ' (id ' + s.submitter.id + ')' : 'неизвестно'}${s.createdAt ? ', ' + fmtDate(s.createdAt) : ''}</span></div>
+    <div class="admin-detail-row"><span>№ анкеты</span><span>${escapeAttr(s.publicId) || '—'}</span></div>
+    <div class="admin-detail-row"><span>Подал</span><span>${s.submitter ? (s.submitter.username ? '@'+escapeAttr(s.submitter.username) : 'без username') + ' (id ' + escapeAttr(s.submitter.id) + ')' : 'неизвестно'}${s.createdAt ? ', ' + fmtDate(s.createdAt) : ''}</span></div>
     <div class="admin-actions">
       <button class="btn-reject" onclick="toggleRejectBox(${s.id})">${s.pendingChanges ? 'Отклонить правку' : 'Отклонить'}</button>
       <button class="btn-approve" onclick="approveSubmission(${s.id})">${s.pendingChanges ? 'Принять правку' : 'Одобрить'}</button>
@@ -716,9 +721,9 @@ async function loadAllSpecialists(){
 }
 function submitterLine(s){
   const who = s.submitter
-    ? `${s.submitter.username ? '@' + s.submitter.username : 'без username'} (id ${s.submitter.id})`
+    ? `${s.submitter.username ? '@' + escapeAttr(s.submitter.username) : 'без username'} (id ${escapeAttr(s.submitter.id)})`
     : 'неизвестно';
-  return `№ ${s.publicId} · Подал: ${who} · ${fmtDate(s.createdAt)}`;
+  return `№ ${escapeAttr(s.publicId)} · Подал: ${who} · ${fmtDate(s.createdAt)}`;
 }
 function renderAllSpecialists(){
   const el = document.getElementById('all-items');
@@ -730,8 +735,8 @@ function renderAllSpecialists(){
     <div class="admin-row">
       ${s.photoFileId ? `<img src="${API_BASE}/api/specialists/${s.id}/photo" style="width:44px; height:44px; border-radius:50%; object-fit:cover; flex-shrink:0;" onerror="this.style.display='none'">` : ''}
       <div class="admin-row-main">
-        <div class="admin-row-name">${s.name} <span style="font-weight:500; color:var(--muted);">· ${s.role}</span></div>
-        <div class="admin-row-meta">${s.city ? s.city.label : 'Без города'} · ${s.category ? s.category.label : s.categoryId} → ${s.subcategory ? s.subcategory.label : s.subcategoryId}</div>
+        <div class="admin-row-name">${escapeAttr(s.name)} <span style="font-weight:500; color:var(--muted);">· ${escapeAttr(s.role)}</span></div>
+        <div class="admin-row-meta">${s.city ? escapeAttr(s.city.label) : 'Без города'} · ${s.category ? escapeAttr(s.category.label) : escapeAttr(s.categoryId)} → ${s.subcategory ? escapeAttr(s.subcategory.label) : escapeAttr(s.subcategoryId)}</div>
         <div class="admin-row-meta" style="margin-top:2px;">${submitterLine(s)}</div>
         <div class="admin-row-badges">
           <span class="mini-badge">${statusLabel(s.status)}</span>
