@@ -697,11 +697,15 @@ function mapApiCategory(c){
 
 // Загружает категории/города/специалистов с сервера один раз при открытии приложения
 async function loadPublicData(){
-  const [categories, cities, specialists] = await Promise.all([
+  const [categories, cities, specialists, prices] = await Promise.all([
     apiRequest('/api/categories'),
     apiRequest('/api/cities'),
-    apiRequest('/api/specialists')
+    apiRequest('/api/specialists'),
+    apiRequest('/api/prices')
   ]);
+
+  PRO_PRICE = prices.pro_price;
+  BOOST_PRICES = {7: prices.boost_price_7, 30: prices.boost_price_30};
 
   CATEGORIES = categories.map(mapApiCategory);
   CITIES = cities.map(c => ({id: c.id, label: c.label, country: c.country}));
@@ -736,8 +740,10 @@ let moneySpecId = null;
 let supportTopicId = null;
 let moneyType = null;
 let selectedBoostDays = 7;
-const PRO_PRICE = 500;
-const BOOST_PRICES = {7:200, 30:600};
+// Значения по умолчанию — используются на долю секунды, пока не пришёл ответ
+// от /api/prices ниже (loadPublicData); реальные цифры задаются в админке.
+let PRO_PRICE = 500;
+let BOOST_PRICES = {7:200, 30:600};
 
 /* ---------- helpers ---------- */
 function cityLabel(){ return CITIES.find(c => c.id === currentCity).label; }
