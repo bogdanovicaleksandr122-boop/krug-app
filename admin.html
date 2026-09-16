@@ -392,6 +392,7 @@ body{ background:var(--backdrop); }
       <div class="admin-tab" data-tab="import" onclick="switchTab('import')">Импорт CSV</div>
       <div class="admin-tab" data-tab="catalog" onclick="switchTab('catalog')">Категории и города</div>
       <div class="admin-tab" data-tab="stats" onclick="switchTab('stats')">Статистика</div>
+      <div class="admin-tab" data-tab="prices" onclick="switchTab('prices')">Цены</div>
     </div>
 
     <div class="admin-tab-content" id="tab-pending">
@@ -453,6 +454,18 @@ body{ background:var(--backdrop); }
         <table class="data-table" id="stats-users-table"></table>
       </div>
     </div>
+
+    <div class="admin-tab-content" id="tab-prices" style="display:none;">
+      <div class="list-title">ЦЕНЫ (В STARS)</div>
+      <div class="csv-help">Изменения применяются сразу ко всем новым покупкам PRO и буста. На уже купленные подписки не влияет.</div>
+      <div class="field-label">PRO-ПОДПИСКА, 1 МЕСЯЦ</div>
+      <input class="field-input" style="max-width:220px;" type="number" min="1" id="price-pro">
+      <div class="field-label">БУСТ, 7 ДНЕЙ</div>
+      <input class="field-input" style="max-width:220px;" type="number" min="1" id="price-boost7">
+      <div class="field-label">БУСТ, 30 ДНЕЙ</div>
+      <input class="field-input" style="max-width:220px;" type="number" min="1" id="price-boost30">
+      <button class="btn-full" style="margin-top:16px; max-width:220px;" onclick="savePrices()">Сохранить цены</button>
+    </div>
   </div>
 </div>
 
@@ -505,6 +518,7 @@ function mapApiSpecialist(s){
     location: s.locationAddress ? {address: s.locationAddress} : null,
     catId: s.categoryId, subcatId: s.subcategoryId, cityId: s.cityId,
     verified: !!s.verified,
+    telegramUserId: s.telegramUserId || null,
     pendingChanges: s.pendingChanges || null,
     photoFileId: s.photoFileId || null,
     publicId: s.publicId, submitter: s.submitter || null, createdAt: s.createdAt
@@ -573,6 +587,7 @@ function switchTab(tab){
   if(tab === 'all') loadAllSpecialists();
   if(tab === 'catalog') loadCatalog();
   if(tab === 'stats') loadStats();
+  if(tab === 'prices') loadPrices();
 }
 
 /* ---------- заявки на проверке ---------- */
@@ -823,6 +838,9 @@ function editFormHtml(s){
     <div class="toggle-row"><input type="checkbox" id="ef-verified" ${s.verified?'checked':''}> <label for="ef-verified">Подтверждено специалистом</label></div>
     <div class="toggle-row"><input type="checkbox" id="ef-pro" ${s.pro?'checked':''}> <label for="ef-pro">PRO</label></div>
     <div class="toggle-row"><input type="checkbox" id="ef-boosted" ${s.boosted?'checked':''}> <label for="ef-boosted">Буст</label></div>
+    <div class="field-label">TELEGRAM ID ВЛАДЕЛЬЦА</div>
+    <input class="field-input" id="ef-owner-id" value="${escapeAttr(s.telegramUserId)}" placeholder="Например, 123456789">
+    <div class="csv-help" style="margin:-4px 0 12px;">Чтобы передать анкету реальному владельцу — впишите его Telegram ID (он должен хотя бы раз открыть приложение). «Подтверждено» выставится автоматически. Оставьте пустым, чтобы снять владельца.</div>
     <div style="display:flex; gap:10px; margin-top:18px;">
       <button class="btn-full" onclick="saveEditForm()">Сохранить</button>
       <button class="btn-tiny" onclick="closeEditModal()" style="flex-shrink:0;">Отмена</button>
@@ -883,6 +901,7 @@ async function saveEditForm(){
     verified: document.getElementById('ef-verified').checked,
     pro: document.getElementById('ef-pro').checked,
     boosted: document.getElementById('ef-boosted').checked,
+    telegramUserId: document.getElementById('ef-owner-id').value.trim() || null,
   };
   if(!payload.name || !payload.role || !payload.categoryId || !payload.subcategoryId){
     showToast('Заполните имя, специализацию, категорию и подкатегорию');
@@ -906,6 +925,37 @@ async function saveEditForm(){
       openEditModal(created.id);
     }
   } catch(e) { showToast('Не удалось сохранить: ' + e.message); }
+}
+
+/* ---------- цены ---------- */
+async function loadPrices(){
+  try {
+    const prices = await apiRequest('/api/admin/prices', {headers: authHeaders()});
+    document.getElementById('price-pro').value = prices.pro_price;
+    document.getElementById('price-boost7').value = prices.boost_price_7;
+    document.getElementById('price-boost30').value = prices.boost_price_30;
+  } catch(e) {
+    sessionExpired();
+  }
+}
+async function savePrices(){
+  const payload = {
+    pro_price: Number(document.getElementById('price-pro').value),
+    boost_price_7: Number(document.getElementById('price-boost7').value),
+    boost_price_30: Number(document.getElementById('price-boost30').value),
+  };
+  if(!payload.pro_price || !payload.boost_price_7 || !payload.boost_price_30){
+    showToast('Заполните все три цены числами больше нуля');
+    return;
+  }
+  try {
+    await apiRequest('/api/admin/prices', {
+      method: 'PUT', headers: authHeaders({'Content-Type':'application/json'}), body: JSON.stringify(payload)
+    });
+    showToast('Цены сохранены');
+  } catch(e) {
+    showToast('Не удалось сохранить: ' + e.message);
+  }
 }
 
 /* ---------- импорт CSV ---------- */
