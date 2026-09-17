@@ -657,7 +657,8 @@ async function apiRequest(path, options){
 // Приводим данные специалиста от сервера к тому виду, который ждёт остальной код прототипа
 function avatarHtml(spec){
   if(!spec.photoFileId) return `<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>`;
-  return `<img src="${API_BASE}/api/specialists/${spec.id}/photo" alt="" style="width:100%; height:100%; object-fit:cover; border-radius:50%;" onerror="this.style.display='none'; this.insertAdjacentHTML('afterend', '<svg viewBox=\\'0 0 24 24\\' fill=\\'currentColor\\'><circle cx=\\'12\\' cy=\\'8\\' r=\\'4\\'/><path d=\\'M4 20c0-4.4 3.6-7 8-7s8 2.6 8 7\\'/></svg>')">`;
+  const v = spec.updatedAt ? '?v=' + encodeURIComponent(spec.updatedAt) : '';
+  return `<img src="${API_BASE}/api/specialists/${spec.id}/photo${v}" alt="" loading="lazy" style="width:100%; height:100%; object-fit:cover; border-radius:50%;" onerror="this.style.display='none'; this.insertAdjacentHTML('afterend', '<svg viewBox=\\'0 0 24 24\\' fill=\\'currentColor\\'><circle cx=\\'12\\' cy=\\'8\\' r=\\'4\\'/><path d=\\'M4 20c0-4.4 3.6-7 8-7s8 2.6 8 7\\'/></svg>')">`;
 }
 function mapApiSpecialist(s){
   return {
@@ -684,6 +685,7 @@ function mapApiSpecialist(s){
     pro: !!s.pro,
     boosted: !!s.boosted,
     photoFileId: s.photoFileId || null,
+    updatedAt: s.updatedAt || null,
     publicId: s.publicId || null
   };
 }
@@ -695,12 +697,16 @@ function mapApiCategory(c){
   };
 }
 
-// Загружает категории/города/специалистов с сервера один раз при открытии приложения
+// Загружает категории/города/цены с сервера один раз при открытии приложения.
+// Раньше здесь же одним запросом тянулись ВСЕ анкеты по всем городам и странам —
+// с ростом каталога до тысяч анкет это стало бы огромным и бессмысленным трафиком
+// (пользователь в моменте видит от силы десяток карточек одной подкатегории одного
+// города). Теперь анкеты подгружаются по запросу: при открытии конкретной подкатегории
+// (см. openSubcategory), через поиск (см. performSearch) или по id (см. openProfileById).
 async function loadPublicData(){
-  const [categories, cities, specialists, prices] = await Promise.all([
+  const [categories, cities, prices] = await Promise.all([
     apiRequest('/api/categories'),
     apiRequest('/api/cities'),
-    apiRequest('/api/specialists'),
     apiRequest('/api/prices')
   ]);
 
@@ -712,11 +718,6 @@ async function loadPublicData(){
 
   SPECIALISTS = {};
   ALL_SPECIALISTS = {};
-  specialists.map(mapApiSpecialist).forEach(s => {
-    if(!SPECIALISTS[s.subcatId]) SPECIALISTS[s.subcatId] = [];
-    SPECIALISTS[s.subcatId].push(s);
-    ALL_SPECIALISTS[s.id] = s;
-  });
 }
 
 const CONTACT_ORDER = ['telegram','phone','instagram','website'];
@@ -806,17 +807,50 @@ function renderSubcatPanel(){
 }
 
 /* ---------- list ---------- */
-function openSubcategory(catId, subId){
+// Кэш уже открытых за сессию сочетаний "подкатегория+город" — чтобы при возврате
+// назад в тот же раздел не дёргать сервер заново. TTL — 2 минуты: этого достаточно,
+// чтобы не грузить сеть при обычной навигации, но и не показывать сильно устаревший
+// список, если за это время что-то изменилось (одобрили анкету, купили буст и т.п.).
+const subcategoryListCache = {};
+const LIST_CACHE_TTL_MS = 2 * 60 * 1000;
+
+async function openSubcategory(catId, subId){
   currentListCatId = catId;
   currentListSubId = subId;
   const cat = CATEGORIES.find(c => c.id === catId);
   const sub = cat.subcats.find(s => s.id === subId);
   document.getElementById('list-title').textContent = sub.label.toUpperCase() + ', ' + cityLabel().toUpperCase();
-  const bySubcat = SPECIALISTS[subId] || [];
-  const byCity = bySubcat.filter(s => s.cityId === currentCity);
-  const specs = isCityAvailable() ? sortForDisplay(byCity) : [];
-  renderList(specs, 'list');
   showScreen('list');
+
+  const requestCity = currentCity;
+  const cacheKey = subId + '__' + requestCity;
+  const cached = subcategoryListCache[cacheKey];
+  if(cached && (Date.now() - cached.fetchedAt) < LIST_CACHE_TTL_MS){
+    renderList(sortForDisplay(cached.specs), 'list');
+    return;
+  }
+
+  document.getElementById('list-items').innerHTML = `<div style="padding:20px; color:var(--muted); font-size:13px;">Загрузка…</div>`;
+  try {
+    const params = new URLSearchParams({subcategoryId: subId, cityId: requestCity});
+    const results = await apiRequest('/api/specialists?' + params.toString());
+    const specs = results.map(mapApiSpecialist);
+    specs.forEach(s => { ALL_SPECIALISTS[s.id] = s; });
+    subcategoryListCache[cacheKey] = {specs, fetchedAt: Date.now()};
+    // Пока грузилось — пользователь мог уйти в другую подкатегорию или сменить город;
+    // в этом случае не подменяем то, что он уже смотрит, результатом старого запроса.
+    if(currentListSubId === subId && currentCity === requestCity){
+      renderList(sortForDisplay(specs), 'list');
+    }
+  } catch(e) {
+    if(currentListSubId === subId && currentCity === requestCity){
+      document.getElementById('list-items').innerHTML = `
+        <div class="empty-state">
+          <div class="empty-title">Не удалось загрузить список</div>
+          <div class="empty-text">Проверьте подключение к интернету и попробуйте ещё раз.</div>
+        </div>`;
+    }
+  }
 }
 function renderList(specs, returnTo, emptyHtml){
   lastListSpecs = specs; lastListReturnTo = returnTo;
@@ -936,21 +970,34 @@ async function toggleFavorite(id){
   }
 }
 
-// Подгружает список избранного с сервера (вызывается один раз при старте, если открыто в Telegram)
+// Подгружает список избранного с сервера (вызывается один раз при старте, если открыто в Telegram).
+// Сервер уже отдаёт полные данные анкет (не только id) — сохраняем их в ALL_SPECIALISTS,
+// иначе экран "Избранное" не смог бы их показать без полной предзагрузки каталога.
 async function loadFavoritesFromServer(){
   if(!tgInitData) return;
   try {
     const serverFavorites = await apiRequest('/api/me/favorites');
-    favorites = new Set(serverFavorites.map(s => s.id));
+    const specs = serverFavorites.map(mapApiSpecialist);
+    specs.forEach(s => { ALL_SPECIALISTS[s.id] = s; });
+    favorites = new Set(specs.map(s => s.id));
   } catch(e){
     console.error('Не удалось загрузить избранное', e);
   }
 }
 
 /* ---------- profile ---------- */
-function openProfileById(id, returnTo){
-  const s = ALL_SPECIALISTS[id];
-  if(!s) return;
+async function openProfileById(id, returnTo){
+  let s = ALL_SPECIALISTS[id];
+  if(!s){
+    try {
+      const raw = await apiRequest(`/api/specialists/${id}`);
+      s = mapApiSpecialist(raw);
+      ALL_SPECIALISTS[id] = s;
+    } catch(e) {
+      showToast('Анкета не найдена или больше не опубликована');
+      return;
+    }
+  }
   profileReturnScreen = returnTo || 'list';
   fillProfile(s);
   showScreen('profile');
@@ -958,8 +1005,9 @@ function openProfileById(id, returnTo){
 function goBackFromProfile(){ showScreen(profileReturnScreen); }
 function fillProfile(spec){
   currentProfileId = spec.id;
+  const v = spec.updatedAt ? '?v=' + encodeURIComponent(spec.updatedAt) : '';
   document.getElementById('profile-avatar').innerHTML = spec.photoFileId
-    ? `<img src="${API_BASE}/api/specialists/${spec.id}/photo" alt="" style="width:100%; height:100%; object-fit:cover; border-radius:50%;" onerror="this.parentElement.innerHTML='<svg viewBox=\\'0 0 24 24\\' fill=\\'currentColor\\'><circle cx=\\'12\\' cy=\\'8\\' r=\\'4\\'/><path d=\\'M4 20c0-4.4 3.6-7 8-7s8 2.6 8 7\\'/></svg>'">`
+    ? `<img src="${API_BASE}/api/specialists/${spec.id}/photo${v}" alt="" style="width:100%; height:100%; object-fit:cover; border-radius:50%;" onerror="this.parentElement.innerHTML='<svg viewBox=\\'0 0 24 24\\' fill=\\'currentColor\\'><circle cx=\\'12\\' cy=\\'8\\' r=\\'4\\'/><path d=\\'M4 20c0-4.4 3.6-7 8-7s8 2.6 8 7\\'/></svg>'">`
     : `<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>`;
   document.getElementById('p-name').textContent = spec.name + ' (' + spec.langs.join('/') + ')';
   document.getElementById('p-role').textContent = spec.role;
@@ -1923,7 +1971,7 @@ async function confirmBoost(){
   const startParam = tg && tg.initDataUnsafe ? tg.initDataUnsafe.start_param : null;
   if(startParam && startParam.indexOf('spec_') === 0){
     const sharedId = Number(startParam.slice(5));
-    if(ALL_SPECIALISTS[sharedId]){
+    if(sharedId){
       openProfileById(sharedId, 'home');
     }
   }
