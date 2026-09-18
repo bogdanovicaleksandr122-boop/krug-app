@@ -393,6 +393,7 @@ body{ background:var(--backdrop); }
       <div class="admin-tab" data-tab="catalog" onclick="switchTab('catalog')">Категории и города</div>
       <div class="admin-tab" data-tab="stats" onclick="switchTab('stats')">Статистика</div>
       <div class="admin-tab" data-tab="prices" onclick="switchTab('prices')">Цены</div>
+      <div class="admin-tab" data-tab="broadcast" onclick="switchTab('broadcast')">Рассылка</div>
     </div>
 
     <div class="admin-tab-content" id="tab-pending">
@@ -465,6 +466,14 @@ body{ background:var(--backdrop); }
       <div class="field-label">БУСТ, 30 ДНЕЙ</div>
       <input class="field-input" style="max-width:220px;" type="number" min="1" id="price-boost30">
       <button class="btn-full" style="margin-top:16px; max-width:220px;" onclick="savePrices()">Сохранить цены</button>
+    </div>
+
+    <div class="admin-tab-content" id="tab-broadcast" style="display:none;">
+      <div class="list-title">РАССЫЛКА ВСЕМ ПОЛЬЗОВАТЕЛЯМ</div>
+      <div class="csv-help">Сообщение придёт в бота каждому, кто хотя бы раз открывал приложение. Отправка не мгновенная — подождите, страница покажет результат сама.</div>
+      <textarea class="field-input" id="broadcast-text" rows="5" placeholder="Текст сообщения…" style="resize:vertical;"></textarea>
+      <button class="btn-full" style="margin-top:12px; max-width:220px;" id="broadcast-btn" onclick="sendBroadcast()">Отправить всем</button>
+      <div class="csv-help" id="broadcast-result" style="margin-top:10px;"></div>
     </div>
   </div>
 </div>
@@ -955,6 +964,30 @@ async function savePrices(){
     showToast('Цены сохранены');
   } catch(e) {
     showToast('Не удалось сохранить: ' + e.message);
+  }
+}
+
+/* ---------- рассылка ---------- */
+async function sendBroadcast(){
+  const text = document.getElementById('broadcast-text').value.trim();
+  if(!text){ showToast('Введите текст сообщения'); return; }
+  if(!confirm('Отправить это сообщение всем пользователям бота?')) return;
+  const btn = document.getElementById('broadcast-btn');
+  const resultEl = document.getElementById('broadcast-result');
+  btn.disabled = true;
+  btn.textContent = 'Отправка…';
+  resultEl.textContent = '';
+  try {
+    const result = await apiRequest('/api/admin/broadcast', {
+      method: 'POST', headers: authHeaders({'Content-Type':'application/json'}), body: JSON.stringify({text})
+    });
+    resultEl.textContent = `Готово: доставлено ${result.sent} из ${result.total}` + (result.failed ? `, не доставлено ${result.failed} (бот заблокирован или нет разрешения писать)` : '');
+    document.getElementById('broadcast-text').value = '';
+  } catch(e) {
+    resultEl.textContent = 'Не удалось отправить: ' + e.message;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Отправить всем';
   }
 }
 
