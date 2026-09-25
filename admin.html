@@ -395,11 +395,20 @@ body{ background:var(--backdrop); }
         <div class="admin-header-title">Админ-панель</div>
       </div>
     </div>
-    <div class="field-label">ЛОГИН</div>
-    <input class="field-input" type="text" id="admin-login-username" placeholder="Логин">
-    <div class="field-label">ПАРОЛЬ</div>
-    <input class="field-input" type="password" id="admin-login-password" placeholder="Пароль">
-    <button class="btn-full" style="margin-top:14px;" onclick="submitAdminLogin()">Войти</button>
+    <div id="login-loading" class="muted" style="font-size:13px;">Загрузка…</div>
+    <div id="login-telegram" style="display:none;">
+      <div class="csv-help">Вход только для владельца КРУГ. Нажмите кнопку ниже и подтвердите вход в Telegram.</div>
+      <div id="tg-login-widget" style="min-height:48px;"></div>
+    </div>
+    <div id="login-password" style="display:none;">
+      <div class="field-label">ЛОГИН</div>
+      <input class="field-input" type="text" id="admin-login-username" placeholder="Логин" autocomplete="username">
+      <div class="field-label">ПАРОЛЬ</div>
+      <input class="field-input" type="password" id="admin-login-password" placeholder="Пароль" autocomplete="current-password" onkeydown="if(event.key==='Enter') submitAdminLogin()">
+      <button class="btn-full" style="margin-top:14px;" onclick="submitAdminLogin()">Войти</button>
+      <div class="csv-help" style="margin-top:16px;">Вход через Telegram пока не включён. Чтобы включить его и отключить вход по паролю, задайте на сервере переменную ADMIN_TELEGRAM_IDS.</div>
+    </div>
+    <div id="login-status" class="csv-help" style="display:none; margin-top:14px;"></div>
   </div>
 
   <div id="adminMain" style="display:none;">
@@ -633,6 +642,74 @@ function showToast(msg){
 }
 
 /* ---------- логин ---------- */
+// Сервер сообщает, какой вход включён: через Telegram (основной) или старый
+// по паролю (только пока не задан список Telegram-аккаунтов владельца).
+function showLoginStatus(html){
+  const el = document.getElementById('login-status');
+  el.innerHTML = html || '';
+  el.style.display = html ? 'block' : 'none';
+}
+async function loadLoginConfig(){
+  document.getElementById('login-loading').style.display = 'block';
+  document.getElementById('login-telegram').style.display = 'none';
+  document.getElementById('login-password').style.display = 'none';
+  showLoginStatus('');
+  let config;
+  try {
+    config = await apiRequest('/api/admin/login/config');
+  } catch(e){
+    document.getElementById('login-loading').style.display = 'none';
+    showLoginStatus(`Не удалось связаться с сервером. <button class="btn-tiny" onclick="loadLoginConfig()">Повторить</button>`);
+    return;
+  }
+  document.getElementById('login-loading').style.display = 'none';
+  if(config.telegram){
+    document.getElementById('login-telegram').style.display = 'block';
+    mountTelegramWidget(config.botUsername);
+  } else {
+    document.getElementById('login-password').style.display = 'block';
+  }
+}
+// Официальная кнопка Telegram Login. Работает только на домене, который привязан
+// к боту в @BotFather командой /setdomain.
+function mountTelegramWidget(botUsername){
+  const box = document.getElementById('tg-login-widget');
+  if(box.dataset.mounted) return;
+  box.dataset.mounted = '1';
+  const script = document.createElement('script');
+  script.async = true;
+  script.src = 'https://telegram.org/js/telegram-widget.js?22';
+  script.setAttribute('data-telegram-login', botUsername);
+  script.setAttribute('data-size', 'large');
+  script.setAttribute('data-radius', '14');
+  script.setAttribute('data-onauth', 'onTelegramAuth(user)');
+  // Разрешение боту писать владельцу — для уведомлений о каждом входе в админку
+  script.setAttribute('data-request-access', 'write');
+  script.onerror = () => showLoginStatus('Не удалось загрузить кнопку Telegram. Проверьте интернет и обновите страницу.');
+  box.appendChild(script);
+}
+async function onTelegramAuth(user){
+  showLoginStatus('Проверяем вход…');
+  try {
+    const res = await fetch(API_BASE + '/api/admin/login/telegram', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(user)
+    });
+    const data = await res.json().catch(() => ({}));
+    if(!res.ok){
+      showLoginStatus(escapeAttr(data.error || 'Не удалось войти')
+        + (data.telegramId ? `<br><br>Ваш Telegram ID: <b>${escapeAttr(data.telegramId)}</b>. Если это аккаунт владельца, добавьте этот номер в переменную ADMIN_TELEGRAM_IDS в Railway.` : ''));
+      return;
+    }
+    showLoginStatus('');
+    adminToken = data.token;
+    sessionStorage.setItem('krugAdminToken', adminToken);
+    await afterLogin();
+  } catch(e){
+    showLoginStatus('Не удалось связаться с сервером. Попробуйте ещё раз.');
+  }
+}
 async function submitAdminLogin(){
   const username = document.getElementById('admin-login-username').value.trim();
   const password = document.getElementById('admin-login-password').value;
@@ -646,7 +723,7 @@ async function submitAdminLogin(){
     sessionStorage.setItem('krugAdminToken', adminToken);
     await afterLogin();
   } catch(e) {
-    showToast('Неверный логин или пароль');
+    showToast(e.message || 'Неверный логин или пароль');
   }
 }
 async function afterLogin(){
@@ -662,6 +739,7 @@ function adminLogout(){
   document.getElementById('loginScreen').style.display = 'block';
   document.getElementById('admin-login-username').value = '';
   document.getElementById('admin-login-password').value = '';
+  loadLoginConfig();
 }
 function sessionExpired(){
   showToast('Сессия истекла, войдите снова');
@@ -1677,6 +1755,8 @@ async function openReferralDetails(id, days){
   });
   if(adminToken){
     await afterLogin();
+  } else {
+    loadLoginConfig();
   }
 })();
 </script>
