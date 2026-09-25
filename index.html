@@ -1057,9 +1057,40 @@ function openExternalLink(url){
 // когда-нибудь изменятся (сейчас: бот @krugspace_bot, ссылка t.me/krugspace_bot/app).
 const SHARE_BOT_USERNAME = 'krugspace_bot';
 const SHARE_APP_NAME = 'app';
-function shareSpecialist(){
+// Красивая отправка: карточка-картинка + кнопка "Открыть анкету" (как чек в @send).
+// Работает в Telegram 8.0 и новее. Сервер рисует картинку и готовит сообщение,
+// Telegram открывает выбор чата. Если что-то не так (старый Telegram, ошибка
+// сервера) — делимся по-старому, обычной ссылкой, чтобы кнопка работала всегда.
+let shareInProgress = false;
+let lastSharedSpec = null;
+function canShareCard(){
+  return !!(tg && tgInitData && typeof tg.shareMessage === 'function'
+    && tg.isVersionAtLeast && tg.isVersionAtLeast('8.0'));
+}
+if(tg && typeof tg.onEvent === 'function'){
+  // Telegram не смог отправить карточку — предлагаем обычную ссылку.
+  tg.onEvent('shareMessageFailed', () => { if(lastSharedSpec) shareSpecialistAsLink(lastSharedSpec); });
+}
+async function shareSpecialist(){
   const spec = ALL_SPECIALISTS[currentProfileId];
-  if(!spec) return;
+  if(!spec || shareInProgress) return;
+  if(canShareCard()){
+    shareInProgress = true;
+    showToast('Готовим карточку…');
+    try {
+      const prepared = await apiRequest(`/api/specialists/${spec.id}/share-prepare`, {method: 'POST'});
+      lastSharedSpec = spec;
+      tg.shareMessage(prepared.id, (sent) => { if(sent) showToast('Анкета отправлена'); });
+      return;
+    } catch(e){
+      console.warn('Карточка не подготовилась, делимся ссылкой', e);
+    } finally {
+      shareInProgress = false;
+    }
+  }
+  shareSpecialistAsLink(spec);
+}
+function shareSpecialistAsLink(spec){
   const city = CITIES.find(c => c.id === spec.cityId);
   const cityText = city ? city.label + (city.country ? ', ' + countryLabelRu(city.country) : '') : '';
   const deepLink = `https://t.me/${SHARE_BOT_USERNAME}/${SHARE_APP_NAME}?startapp=spec_${spec.id}`;
