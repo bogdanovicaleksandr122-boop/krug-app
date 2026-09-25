@@ -2013,7 +2013,16 @@ async function confirmBoost(){
 
 (async function init(){
   // Сообщаем Telegram, что приложение готово, и разворачиваем его на весь экран
-  if(tg){ tg.ready(); tg.expand(); }
+  if(tg){
+    tg.ready();
+    tg.expand();
+    // Запрещаем сворачивать/закрывать приложение свайпом вниз — иначе при обычной
+    // прокрутке списка оно случайно сворачивается. Закрыть можно кнопкой «Закрыть».
+    // Работает в Telegram версии 7.7 и новее, в старых просто ничего не делаем.
+    if(typeof tg.disableVerticalSwipes === 'function' && (!tg.isVersionAtLeast || tg.isVersionAtLeast('7.7'))){
+      tg.disableVerticalSwipes();
+    }
+  }
 
   const scroll = document.querySelector('.cat-scroll');
   if(scroll) scroll.innerHTML = '<div style="padding:20px; color:var(--muted); font-size:13px;">Загрузка данных с сервера…</div>';
