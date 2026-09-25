@@ -358,6 +358,31 @@ body{ background:var(--backdrop); }
 .toggle-row{ display:flex; align-items:center; gap:10px; padding:8px 0; font-size:13.5px; font-weight:600; }
 .csv-help{ background:var(--paper-soft); border-radius:16px; padding:16px; font-size:12.5px; line-height:1.7; margin-bottom:16px; }
 .csv-help code{ background:var(--paper); padding:1px 6px; border-radius:5px; }
+
+/* статистика и реклама */
+.section-title{ font-family:var(--font-display); font-weight:700; font-size:15px; margin:30px 0 12px; }
+.section-hint{ font-size:12px; color:var(--muted); margin:-6px 0 12px; line-height:1.5; }
+.stat-card .stat-sub{ font-size:11px; color:var(--muted); margin-top:4px; }
+.bar-chart{ display:flex; align-items:flex-end; gap:2px; height:140px; padding-top:8px; border-bottom:1.5px solid var(--line); }
+.bar-chart div{ flex:1; background:var(--ink); border-radius:3px 3px 0 0; min-height:2px; position:relative; }
+.bar-chart div.zero{ background:var(--line); }
+.bar-chart div:hover{ opacity:.7; }
+.bar-legend{ display:flex; justify-content:space-between; font-size:11px; color:var(--muted); margin-top:5px; }
+.chip-row{ display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px; }
+.chip{ padding:7px 13px; border-radius:999px; background:var(--paper-soft); font-weight:700; font-size:12px; cursor:pointer; border:none; font-family:inherit; color:var(--ink); }
+.chip.active{ background:var(--ink); color:var(--paper); }
+.hbar-row{ display:grid; grid-template-columns:minmax(110px, 34%) 1fr auto; gap:10px; align-items:center; padding:6px 0; font-size:12.5px; }
+.hbar-track{ background:var(--paper-soft); border-radius:6px; height:14px; overflow:hidden; }
+.hbar-fill{ background:var(--ink); height:100%; border-radius:6px; }
+.hbar-num{ text-align:right; font-weight:800; }
+.two-col{ display:grid; grid-template-columns:1fr 1fr; gap:26px; }
+@media(max-width:680px){ .two-col{ grid-template-columns:1fr; gap:0; } }
+.table-wrap{ overflow-x:auto; }
+.data-table td.num, .data-table th.num{ text-align:right; white-space:nowrap; }
+.link-code{ font-family:ui-monospace, Menlo, monospace; font-size:11.5px; background:var(--paper-soft); padding:3px 7px; border-radius:6px; word-break:break-all; }
+.ref-form{ background:var(--paper-soft); border-radius:18px; padding:4px 16px 18px; margin-bottom:10px; }
+.ref-form .field-input{ background:var(--paper); }
+.muted{ color:var(--muted); }
 </style>
 </head>
 <body>
@@ -392,6 +417,7 @@ body{ background:var(--backdrop); }
       <div class="admin-tab" data-tab="import" onclick="switchTab('import')">Импорт CSV</div>
       <div class="admin-tab" data-tab="catalog" onclick="switchTab('catalog')">Категории и города</div>
       <div class="admin-tab" data-tab="stats" onclick="switchTab('stats')">Статистика</div>
+      <div class="admin-tab" data-tab="referrals" onclick="switchTab('referrals')">Реклама</div>
       <div class="admin-tab" data-tab="prices" onclick="switchTab('prices')">Цены</div>
       <div class="admin-tab" data-tab="broadcast" onclick="switchTab('broadcast')">Рассылка</div>
     </div>
@@ -445,6 +471,17 @@ body{ background:var(--backdrop); }
     </div>
 
     <div class="admin-tab-content" id="tab-stats" style="display:none;">
+      <div class="admin-toolbar">
+        <select id="stats-period" onchange="loadAnalytics()">
+          <option value="7">За 7 дней</option>
+          <option value="30" selected>За 30 дней</option>
+          <option value="90">За 90 дней</option>
+          <option value="365">За год</option>
+        </select>
+        <button class="btn-small ghost" onclick="loadStats()">Обновить</button>
+      </div>
+      <div id="analytics-body"></div>
+      <div class="section-title">Каталог и деньги (всё время)</div>
       <div class="stat-grid" id="stats-grid"></div>
       <div class="list-title">ТОП КАТЕГОРИЙ</div>
       <table class="data-table" id="stats-top-categories"></table>
@@ -454,6 +491,41 @@ body{ background:var(--backdrop); }
       <div style="overflow-x:auto;">
         <table class="data-table" id="stats-users-table"></table>
       </div>
+    </div>
+
+    <div class="admin-tab-content" id="tab-referrals" style="display:none;">
+      <div class="csv-help">
+        Создайте отдельную ссылку под каждый канал, чат или рекламный пост и разместите её в рекламе.
+        Здесь будет видно, сколько людей перешло по каждой ссылке, сколько из них новые, сколько вернулись
+        на следующий день и связались со специалистами. Если указать стоимость рекламы, посчитается цена одного нового пользователя.<br>
+        Новым считается человек, который открыл КРУГ впервые именно по этой ссылке. Переходы уже знакомых пользователей тоже считаются, но в «Переходы», а не в «Новые».
+      </div>
+      <div class="ref-form">
+        <div class="field-row-2">
+          <div><div class="field-label">НАЗВАНИЕ *</div><input class="field-input" id="ref-name" maxlength="100" placeholder="Например: Пост в «Болгария для своих», май"></div>
+          <div><div class="field-label">ГДЕ РАЗМЕЩЕНА</div><input class="field-input" id="ref-channel" maxlength="200" placeholder="@канал или название чата"></div>
+        </div>
+        <div class="field-row-2">
+          <div><div class="field-label">СТОИМОСТЬ РЕКЛАМЫ</div>
+            <div style="display:flex; gap:8px;">
+              <input class="field-input" id="ref-cost" inputmode="decimal" placeholder="0">
+              <select class="field-input" id="ref-currency" style="width:110px;">
+                <option>EUR</option><option>PLN</option><option>BGN</option><option>USD</option><option>UAH</option><option>RUB</option><option>Stars</option>
+              </select>
+            </div>
+          </div>
+          <div><div class="field-label">СРАЗУ ОТКРЫТЬ АНКЕТУ №</div><input class="field-input" id="ref-target" inputmode="numeric" placeholder="Необязательно, например 100000000042"></div>
+        </div>
+        <div class="field-row-2">
+          <div><div class="field-label">КОД В ССЫЛКЕ</div><input class="field-input" id="ref-code" maxlength="40" placeholder="Необязательно — сделаем из названия"></div>
+          <div><div class="field-label">ЗАМЕТКА</div><input class="field-input" id="ref-note" maxlength="1000" placeholder="Необязательно"></div>
+        </div>
+        <button class="btn-small" style="margin-top:16px;" onclick="createReferral()">Создать ссылку</button>
+      </div>
+      <div class="admin-toolbar" style="margin-top:18px;">
+        <label class="toggle-row" style="padding:0;"><input type="checkbox" id="ref-show-archived" onchange="renderReferrals()"> Показывать архив</label>
+      </div>
+      <div class="table-wrap"><table class="data-table" id="ref-table"></table></div>
     </div>
 
     <div class="admin-tab-content" id="tab-prices" style="display:none;">
@@ -482,6 +554,16 @@ body{ background:var(--backdrop); }
   <div class="admin-modal">
     <div class="modal-title" id="edit-modal-title">Анкета</div>
     <div id="edit-modal-body"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="infoModalOverlay">
+  <div class="admin-modal" style="max-width:760px;">
+    <div style="display:flex; justify-content:space-between; gap:10px; align-items:flex-start;">
+      <div class="modal-title" id="info-modal-title">—</div>
+      <button class="btn-tiny" onclick="closeInfoModal()">Закрыть</button>
+    </div>
+    <div id="info-modal-body"></div>
   </div>
 </div>
 
@@ -596,6 +678,7 @@ function switchTab(tab){
   if(tab === 'all') loadAllSpecialists();
   if(tab === 'catalog') loadCatalog();
   if(tab === 'stats') loadStats();
+  if(tab === 'referrals') loadReferrals();
   if(tab === 'prices') loadPrices();
 }
 
@@ -771,6 +854,7 @@ function renderAllSpecialists(){
         </div>
       </div>
       <div class="admin-row-actions">
+        <button class="btn-tiny" onclick="openSpecialistStats(${s.id})">Статистика</button>
         <button class="btn-tiny" onclick="openEditModal(${s.id})">Изменить</button>
         <button class="btn-tiny danger" onclick="deleteSpecialist(${s.id})">Удалить</button>
       </div>
@@ -1113,6 +1197,7 @@ async function saveCity(id){
 
 /* ---------- статистика ---------- */
 async function loadStats(){
+  loadAnalytics();
   document.getElementById('stats-grid').innerHTML = `<div style="padding:20px; color:var(--muted); font-size:13px;">Загрузка…</div>`;
   try {
     const [stats, users] = await Promise.all([
@@ -1157,21 +1242,438 @@ function fmtDate(d){
 }
 function renderUsersTable(users){
   document.getElementById('stats-users-table').innerHTML = `
-    <tr><th>Юзернейм</th><th>Имя</th><th>IP</th><th>Первый вход</th><th>Последняя активность</th></tr>
+    <tr><th>Юзернейм</th><th>Имя</th><th>Откуда пришёл</th><th>IP</th><th>Первый вход</th><th>Последняя активность</th></tr>
     ${users.map(u => `<tr>
       <td>${u.username ? '@'+escapeAttr(u.username) : '—'}</td>
       <td>${escapeAttr([u.firstName,u.lastName].filter(Boolean).join(' ')) || '—'}</td>
+      <td>${u.referralLink ? 'Реклама: ' + escapeAttr(u.referralLink.name) : escapeAttr(SOURCE_LABELS[u.firstSource || 'unknown'] || u.firstSource)}</td>
       <td>${escapeAttr(u.lastIp) || '—'}</td>
       <td>${fmtDate(u.firstSeenAt)}</td>
       <td>${fmtDate(u.lastSeenAt)}</td>
-    </tr>`).join('') || '<tr><td colspan="5">Пока никто не заходил</td></tr>'}
+    </tr>`).join('') || '<tr><td colspan="6">Пока никто не заходил</td></tr>'}
   `;
+}
+
+/* ---------- подробная статистика ---------- */
+const SOURCE_LABELS = {direct:'Сам открыл бота', ref:'Рекламная ссылка', share:'Ему поделились анкетой', unknown:'Неизвестно (до запуска статистики)'};
+const VIEW_SOURCE_LABELS = {catalog:'Каталог', search:'Поиск', favorites:'Избранное', share:'Ссылка «поделиться»', ref:'Реклама', cabinet:'Личный кабинет', other:'Другое', unknown:'Другое'};
+const CONTACT_LABELS_STATS = {telegram:'Telegram', phone:'Телефон', instagram:'Instagram', website:'Сайт', map:'Адрес на карте'};
+const PLATFORM_LABELS = {ios:'iPhone / iPad', android:'Android', tdesktop:'Telegram Desktop', macos:'Mac', weba:'Web', webk:'Web', web:'Web', unknown:'Неизвестно'};
+const LANGUAGE_LABELS = {ru:'Русский', uk:'Украинский', be:'Белорусский', bg:'Болгарский', pl:'Польский', en:'Английский', kk:'Казахский', unknown:'Не указан'};
+const WEEKDAY_LABELS = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+const METRICS = [
+  {key:'newUsers', label:'Новые пользователи'},
+  {key:'activeUsers', label:'Активные пользователи'},
+  {key:'opens', label:'Открытия приложения'},
+  {key:'views', label:'Просмотры анкет'},
+  {key:'contacts', label:'Нажатия на контакты'},
+];
+let analyticsData = null;
+let analyticsMetric = 'newUsers';
+
+function pct(part, whole){ return whole ? Math.round(part / whole * 1000) / 10 : 0; }
+function shortDate(iso){ const [y, m, d] = iso.split('-'); return d + '.' + m; }
+function loadingHtml(){ return `<div style="padding:20px; color:var(--muted); font-size:13px;">Загрузка…</div>`; }
+
+// Столбиковый график: values — числа, labels — подписи для подсказки при наведении
+function barChart(values, labels, legendLeft, legendRight){
+  const max = Math.max(1, ...values);
+  const bars = values.map((v, i) => `<div class="${v ? '' : 'zero'}" style="height:${Math.max(2, Math.round(v / max * 100))}%;" title="${escapeAttr(labels[i])}: ${v}"></div>`).join('');
+  return `<div class="bar-chart">${bars}</div>
+    <div class="bar-legend"><span>${escapeAttr(legendLeft)}</span><span>максимум ${max}</span><span>${escapeAttr(legendRight)}</span></div>`;
+}
+// Горизонтальные полоски "название — доля — число"
+function hbars(rows, emptyText){
+  if(!rows.length) return `<div class="muted" style="font-size:12.5px; padding:6px 0;">${escapeAttr(emptyText || 'Пока нет данных')}</div>`;
+  const max = Math.max(1, ...rows.map(r => r.value));
+  return rows.map(r => `
+    <div class="hbar-row">
+      <div>${escapeAttr(r.label)}</div>
+      <div class="hbar-track"><div class="hbar-fill" style="width:${Math.max(1, r.value / max * 100)}%;"></div></div>
+      <div class="hbar-num">${r.value}${r.suffix ? escapeAttr(r.suffix) : ''}</div>
+    </div>`).join('');
+}
+function statCardSub(num, label, sub){
+  return `<div class="stat-card"><div class="stat-num">${num}</div><div class="stat-label">${label}</div>${sub ? `<div class="stat-sub">${sub}</div>` : ''}</div>`;
+}
+
+async function loadAnalytics(){
+  const days = document.getElementById('stats-period').value;
+  const el = document.getElementById('analytics-body');
+  el.innerHTML = loadingHtml();
+  try {
+    analyticsData = await apiRequest('/api/admin/analytics?days=' + encodeURIComponent(days), {headers: authHeaders()});
+    renderAnalytics();
+  } catch(e){
+    el.innerHTML = `<div class="muted" style="font-size:13px;">Не удалось загрузить статистику: ${escapeAttr(e.message)}</div>`;
+  }
+}
+function setAnalyticsMetric(key){ analyticsMetric = key; renderAnalytics(); }
+
+function renderAnalytics(){
+  const a = analyticsData;
+  const u = a.users;
+  const retention = u.retention.total ? pct(u.retention.returned, u.retention.total) + '%' : '—';
+  const f = a.funnel;
+  const metric = METRICS.find(m => m.key === analyticsMetric);
+  const daily = a.daily;
+  const sourceRows = Object.entries(u.newBySource).map(([k, v]) => ({label: SOURCE_LABELS[k] || k, value: v})).sort((x, y) => y.value - x.value);
+
+  const topRows = a.topSpecialists.map(s => `<tr>
+      <td><b>${escapeAttr(s.name)}</b><div class="muted">${escapeAttr(s.role)}${s.city ? ' · ' + escapeAttr(s.city) : ''}${s.pro ? ' · PRO' : ''}${s.boosted ? ' · буст' : ''}</div></td>
+      <td class="num">${s.views}</td><td class="num">${s.viewers}</td><td class="num">${s.contacts}</td>
+      <td class="num">${s.contactRate}%</td><td class="num">${s.shares}</td>
+      <td><button class="btn-tiny" onclick="openSpecialistStats(${s.id})">Подробнее</button></td>
+    </tr>`).join('');
+  const searchRows = a.topSearches.map(q => `<tr><td>${escapeAttr(q.query)}</td><td class="num">${q.n}</td><td class="num">${q.users}</td><td class="num">${q.results}</td></tr>`).join('');
+  const zeroRows = a.zeroSearches.map(q => `<tr><td>${escapeAttr(q.query)}</td><td class="num">${q.n}</td><td class="num">${q.users}</td></tr>`).join('');
+  const subRows = a.topSubcategories.map(sc => `<tr><td>${escapeAttr(sc.label)}</td><td class="num">${sc.n}</td><td class="num">${sc.users}</td><td class="num">${sc.empty}</td></tr>`).join('');
+  const starsTotal = a.payments.reduce((sum, p) => sum + p.stars, 0);
+
+  document.getElementById('analytics-body').innerHTML = `
+    <div class="section-title" style="margin-top:0;">Аудитория</div>
+    <div class="stat-grid">
+      ${statCardSub(u.newInPeriod, 'Новых пользователей', 'за ' + a.periodDays + ' дн.')}
+      ${statCardSub(u.active24h, 'Активны за 24 часа')}
+      ${statCardSub(u.active7d, 'Активны за 7 дней')}
+      ${statCardSub(u.activeInPeriod, 'Активны за период')}
+      ${statCardSub(u.total, 'Пользователей всего')}
+      ${statCardSub(retention, 'Вернулись на след. день', u.retention.returned + ' из ' + u.retention.total + ' новичков')}
+    </div>
+    <div class="section-title">Действия за период</div>
+    <div class="stat-grid">
+      ${statCardSub(a.totals.opens, 'Открытий приложения')}
+      ${statCardSub(a.totals.views, 'Просмотров анкет')}
+      ${statCardSub(a.totals.contacts, 'Нажатий на контакты')}
+      ${statCardSub(a.totals.shares, 'Поделились анкетой')}
+      ${statCardSub(a.totals.newSpecialists, 'Новых анкет')}
+      ${statCardSub(starsTotal, 'Получено Stars', a.payments.map(p => (p.type === 'pro' ? 'PRO' : 'Буст') + ': ' + p.count).join(' · '))}
+    </div>
+
+    <div class="section-title">По дням</div>
+    <div class="chip-row">${METRICS.map(m => `<button class="chip ${m.key === analyticsMetric ? 'active' : ''}" onclick="setAnalyticsMetric('${m.key}')">${m.label}</button>`).join('')}</div>
+    ${barChart(daily.map(d => d[metric.key]), daily.map(d => shortDate(d.date)), shortDate(daily[0].date), shortDate(daily[daily.length - 1].date))}
+
+    <div class="two-col">
+      <div>
+        <div class="section-title">Воронка</div>
+        <div class="section-hint">Сколько разных людей дошли до каждого шага</div>
+        ${hbars([
+          {label: 'Открыли приложение', value: f.opened},
+          {label: 'Посмотрели анкету', value: f.viewed, suffix: f.opened ? ' (' + pct(f.viewed, f.opened) + '%)' : ''},
+          {label: 'Нажали на контакт', value: f.contacted, suffix: f.opened ? ' (' + pct(f.contacted, f.opened) + '%)' : ''},
+        ])}
+      </div>
+      <div>
+        <div class="section-title">Откуда пришли новые</div>
+        <div class="section-hint">Первый вход новых пользователей за период</div>
+        ${hbars(sourceRows)}
+      </div>
+    </div>
+
+    <div class="two-col">
+      <div>
+        <div class="section-title">Когда заходят (по часам)</div>
+        <div class="section-hint">Время болгарское. Подсказывает, когда лучше выпускать рекламу</div>
+        ${barChart(a.hours, a.hours.map((_, h) => h + ':00'), '0:00', '23:00')}
+      </div>
+      <div>
+        <div class="section-title">По дням недели</div>
+        <div class="section-hint">Открытия приложения</div>
+        ${hbars(a.weekdays.map((v, i) => ({label: WEEKDAY_LABELS[i], value: v})), '')}
+      </div>
+    </div>
+
+    <div class="section-title">Самые просматриваемые анкеты</div>
+    <div class="section-hint">«Связались» — какая доля посмотревших людей нажала на контакт. Повторные просмотры одного человека в течение 30 минут считаются одним, просмотры владельцем своей анкеты не считаются.</div>
+    <div class="table-wrap"><table class="data-table">
+      <tr><th>Анкета</th><th class="num">Просмотры</th><th class="num">Людей</th><th class="num">Контакты</th><th class="num">Связались</th><th class="num">Поделились</th><th></th></tr>
+      ${topRows || '<tr><td colspan="7">Пока нет просмотров</td></tr>'}
+    </table></div>
+
+    <div class="two-col">
+      <div>
+        <div class="section-title">Что ищут</div>
+        <div class="table-wrap"><table class="data-table">
+          <tr><th>Запрос</th><th class="num">Раз</th><th class="num">Людей</th><th class="num">Нашлось</th></tr>
+          ${searchRows || '<tr><td colspan="4">Пока нет поисков</td></tr>'}
+        </table></div>
+      </div>
+      <div>
+        <div class="section-title">Ищут, но не находят</div>
+        <div class="section-hint">Спрос без предложения: каких специалистов стоит добавить</div>
+        <div class="table-wrap"><table class="data-table">
+          <tr><th>Запрос</th><th class="num">Раз</th><th class="num">Людей</th></tr>
+          ${zeroRows || '<tr><td colspan="3">Таких нет</td></tr>'}
+        </table></div>
+      </div>
+    </div>
+
+    <div class="section-title">Популярные разделы каталога</div>
+    <div class="section-hint">«Пусто» — сколько раз раздел открыли, а в выбранном городе там никого не было</div>
+    <div class="table-wrap"><table class="data-table">
+      <tr><th>Раздел</th><th class="num">Открыли</th><th class="num">Людей</th><th class="num">Пусто</th></tr>
+      ${subRows || '<tr><td colspan="4">Пока нет данных</td></tr>'}
+    </table></div>
+
+    <div class="two-col">
+      <div>
+        <div class="section-title">Устройства</div>
+        <div class="section-hint">Людей за период</div>
+        ${hbars(a.platforms.map(p => ({label: PLATFORM_LABELS[p.platform] || p.platform, value: p.users})))}
+      </div>
+      <div>
+        <div class="section-title">Язык Telegram</div>
+        <div class="section-hint">Все пользователи</div>
+        ${hbars(a.languages.slice(0, 10).map(l => ({label: LANGUAGE_LABELS[l.language] || l.language, value: l.users})))}
+      </div>
+    </div>
+  `;
+}
+
+/* ---------- окно с подробностями ---------- */
+function openInfoModal(title, html){
+  document.getElementById('info-modal-title').textContent = title;
+  document.getElementById('info-modal-body').innerHTML = html;
+  document.getElementById('infoModalOverlay').classList.add('open');
+}
+function closeInfoModal(){
+  document.getElementById('infoModalOverlay').classList.remove('open');
+}
+
+/* ---------- статистика одной анкеты ---------- */
+async function openSpecialistStats(id, days){
+  days = days || 30;
+  const known = allSpecialists.find(s => s.id === id) || (analyticsData && analyticsData.topSpecialists.find(s => s.id === id));
+  const title = 'Статистика: ' + (known ? known.name : 'анкета');
+  openInfoModal(title, loadingHtml());
+  try {
+    const st = await apiRequest(`/api/admin/specialists/${id}/stats?days=${days}`, {headers: authHeaders()});
+    const daily = st.daily;
+    const periodChips = [7, 30, 90, 365].map(d => `<button class="chip ${d === st.periodDays ? 'active' : ''}" onclick="openSpecialistStats(${id}, ${d})">${d === 365 ? 'Год' : d + ' дн.'}</button>`).join('');
+    openInfoModal(title, `
+      <div class="chip-row" style="margin-top:10px;">${periodChips}</div>
+      <div class="stat-grid">
+        ${statCardSub(st.views.period, 'Просмотров', 'всего ' + st.views.total)}
+        ${statCardSub(st.uniqueViewers.period, 'Разных людей', 'всего ' + st.uniqueViewers.total)}
+        ${statCardSub(st.contacts.period, 'Нажатий на контакты', 'всего ' + st.contacts.total)}
+        ${statCardSub(st.contactRate + '%', 'Посмотревших связались')}
+        ${statCardSub(st.shares.period, 'Поделились', 'всего ' + st.shares.total)}
+        ${statCardSub(st.favorites, 'Сейчас в избранном')}
+      </div>
+      <div class="section-title" style="margin-top:6px;">Просмотры по дням</div>
+      ${barChart(daily.map(d => d.views), daily.map(d => shortDate(d.date)), shortDate(daily[0].date), shortDate(daily[daily.length - 1].date))}
+      <div class="section-title">Нажатия на контакты по дням</div>
+      ${barChart(daily.map(d => d.contacts), daily.map(d => shortDate(d.date)), shortDate(daily[0].date), shortDate(daily[daily.length - 1].date))}
+      <div class="two-col">
+        <div>
+          <div class="section-title">Какие контакты нажимают</div>
+          ${hbars(Object.entries(st.contacts.byType).map(([k, v]) => ({label: CONTACT_LABELS_STATS[k] || k, value: v})).sort((x, y) => y.value - x.value))}
+        </div>
+        <div>
+          <div class="section-title">Откуда открывают</div>
+          ${hbars(Object.entries(st.sources).map(([k, v]) => ({label: VIEW_SOURCE_LABELS[k] || k, value: v})).sort((x, y) => y.value - x.value))}
+        </div>
+      </div>
+    `);
+  } catch(e){
+    openInfoModal(title, `<div class="muted" style="font-size:13px;">Не удалось загрузить: ${escapeAttr(e.message)}</div>`);
+  }
+}
+
+/* ---------- рекламные ссылки ---------- */
+let referrals = [];
+async function loadReferrals(){
+  document.getElementById('ref-table').innerHTML = `<tr><td>${loadingHtml()}</td></tr>`;
+  try {
+    referrals = await apiRequest('/api/admin/referrals', {headers: authHeaders()});
+    renderReferrals();
+  } catch(e){
+    document.getElementById('ref-table').innerHTML = `<tr><td>Не удалось загрузить: ${escapeAttr(e.message)}</td></tr>`;
+  }
+}
+function money(value, currency){
+  if(value == null) return '—';
+  return (Math.round(value * 100) / 100).toLocaleString('ru-RU') + ' ' + escapeAttr(currency || '');
+}
+function renderReferrals(){
+  const showArchived = document.getElementById('ref-show-archived').checked;
+  const list = referrals.filter(r => showArchived || !r.archived);
+  const head = `<tr><th>Ссылка</th><th class="num" title="Сколько раз открыли приложение по ссылке">Переходы</th><th class="num">Новые</th><th class="num" title="Новые, которые вернулись хотя бы на следующий день">Вернулись</th><th class="num" title="Новые, которые нажали на контакт специалиста">Связались</th><th class="num" title="Анкет подали пришедшие по ссылке">Анкет</th><th class="num">Stars</th><th class="num">Стоимость</th><th class="num">За новичка</th></tr>`;
+  if(!list.length){
+    document.getElementById('ref-table').innerHTML = head + `<tr><td colspan="9">${referrals.length ? 'Все ссылки в архиве' : 'Ссылок пока нет — создайте первую выше'}</td></tr>`;
+    return;
+  }
+  document.getElementById('ref-table').innerHTML = head + list.map(r => {
+    const st = r.stats || {};
+    return `<tr style="${r.archived ? 'opacity:.55;' : ''}">
+      <td style="min-width:230px;">
+        <b>${escapeAttr(r.name)}</b>${r.archived ? ' <span class="mini-badge">архив</span>' : ''}
+        <div class="muted">${r.channel ? escapeAttr(r.channel) + ' · ' : ''}${fmtDate(r.createdAt)}${r.target ? ' · ведёт на анкету «' + escapeAttr(r.target.name) + '»' : ''}</div>
+        <div style="margin-top:6px; display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+          <span class="link-code">${escapeAttr(r.url)}</span>
+        </div>
+        <div style="margin-top:6px; display:flex; gap:6px; flex-wrap:wrap;">
+          <button class="btn-tiny" onclick="copyReferralLink(${r.id})">Копировать</button>
+          <button class="btn-tiny" onclick="openReferralDetails(${r.id})">Подробнее</button>
+          <button class="btn-tiny" onclick="openReferralEdit(${r.id})">Изменить</button>
+        </div>
+        ${r.note ? `<div class="muted" style="margin-top:4px;">${escapeAttr(r.note)}</div>` : ''}
+      </td>
+      <td class="num">${st.opens || 0}<div class="muted">${st.openers || 0} чел.</div></td>
+      <td class="num"><b>${st.newUsers || 0}</b></td>
+      <td class="num">${st.returned || 0}<div class="muted">${pct(st.returned || 0, st.newUsers || 0)}%</div></td>
+      <td class="num">${st.contacted || 0}</td>
+      <td class="num">${st.specialists || 0}</td>
+      <td class="num">${st.stars || 0}</td>
+      <td class="num">${money(r.cost, r.currency)}</td>
+      <td class="num"><b>${money(r.costPerUser, r.currency)}</b></td>
+    </tr>`;
+  }).join('');
+}
+function copyReferralLink(id){
+  const r = referrals.find(x => x.id === id);
+  if(!r) return;
+  const done = () => showToast('Ссылка скопирована');
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(r.url).then(done).catch(() => prompt('Скопируйте ссылку:', r.url));
+  } else {
+    prompt('Скопируйте ссылку:', r.url);
+  }
+}
+function readReferralForm(prefix){
+  const val = (id) => document.getElementById(prefix + id).value.trim();
+  return {
+    name: val('name'), channel: val('channel'), cost: val('cost'), currency: val('currency'),
+    targetPublicId: val('target'), note: val('note'),
+  };
+}
+async function createReferral(){
+  const body = readReferralForm('ref-');
+  body.code = document.getElementById('ref-code').value.trim();
+  if(!body.name){ showToast('Укажите название ссылки'); return; }
+  try {
+    const created = await apiRequest('/api/admin/referrals', {
+      method: 'POST', headers: authHeaders({'Content-Type': 'application/json'}), body: JSON.stringify(body)
+    });
+    ['name','channel','cost','target','code','note'].forEach(k => { document.getElementById('ref-' + k).value = ''; });
+    referrals.unshift(created);
+    renderReferrals();
+    showToast('Ссылка создана');
+  } catch(e){ showToast(e.message); }
+}
+function openReferralEdit(id){
+  const r = referrals.find(x => x.id === id);
+  if(!r) return;
+  const currencies = ['EUR','PLN','BGN','USD','UAH','RUB','Stars'];
+  if(r.currency && !currencies.includes(r.currency)) currencies.push(r.currency);
+  openInfoModal('Изменить ссылку', `
+    <div class="field-label">НАЗВАНИЕ *</div><input class="field-input" id="refe-name" maxlength="100" value="${escapeAttr(r.name)}">
+    <div class="field-label">ГДЕ РАЗМЕЩЕНА</div><input class="field-input" id="refe-channel" maxlength="200" value="${escapeAttr(r.channel || '')}">
+    <div class="field-row-2">
+      <div><div class="field-label">СТОИМОСТЬ</div><input class="field-input" id="refe-cost" inputmode="decimal" value="${r.cost == null ? '' : escapeAttr(r.cost)}"></div>
+      <div><div class="field-label">ВАЛЮТА</div><select class="field-input" id="refe-currency">${currencies.map(c => `<option ${c === (r.currency || 'EUR') ? 'selected' : ''}>${escapeAttr(c)}</option>`).join('')}</select></div>
+    </div>
+    <div class="field-label">СРАЗУ ОТКРЫТЬ АНКЕТУ №</div><input class="field-input" id="refe-target" inputmode="numeric" value="${r.target ? escapeAttr(r.target.publicId) : ''}" placeholder="Пусто — открывается главная">
+    <div class="field-label">ЗАМЕТКА</div><input class="field-input" id="refe-note" maxlength="1000" value="${escapeAttr(r.note || '')}">
+    <div class="csv-help" style="margin-top:16px;">Код ссылки (<code>${escapeAttr(r.code)}</code>) изменить нельзя — ссылка уже может быть опубликована в рекламе.</div>
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+      <button class="btn-small" onclick="saveReferral(${r.id})">Сохранить</button>
+      <button class="btn-small ghost" onclick="toggleReferralArchive(${r.id})">${r.archived ? 'Вернуть из архива' : 'В архив'}</button>
+      <button class="btn-tiny danger" onclick="deleteReferral(${r.id})">Удалить</button>
+    </div>
+  `);
+}
+async function updateReferral(id, body, okText){
+  try {
+    const updated = await apiRequest(`/api/admin/referrals/${id}`, {
+      method: 'PUT', headers: authHeaders({'Content-Type': 'application/json'}), body: JSON.stringify(body)
+    });
+    referrals = referrals.map(r => r.id === id ? updated : r);
+    renderReferrals();
+    closeInfoModal();
+    showToast(okText);
+  } catch(e){ showToast(e.message); }
+}
+function saveReferral(id){
+  const body = readReferralForm('refe-');
+  if(!body.name){ showToast('Название не может быть пустым'); return; }
+  updateReferral(id, body, 'Сохранено');
+}
+function toggleReferralArchive(id){
+  const r = referrals.find(x => x.id === id);
+  if(r) updateReferral(id, {archived: !r.archived}, r.archived ? 'Ссылка снова активна' : 'Ссылка в архиве');
+}
+async function deleteReferral(id){
+  if(!confirm('Удалить ссылку навсегда? Люди, пришедшие по ней, останутся в базе, но в статистике источник станет «неизвестно». Обычно лучше отправить ссылку в архив.')) return;
+  try {
+    await apiRequest(`/api/admin/referrals/${id}`, {method: 'DELETE', headers: authHeaders()});
+    referrals = referrals.filter(r => r.id !== id);
+    renderReferrals();
+    closeInfoModal();
+    showToast('Ссылка удалена');
+  } catch(e){ showToast(e.message); }
+}
+async function openReferralDetails(id, days){
+  days = days || 30;
+  const known = referrals.find(x => x.id === id);
+  const title = 'Реклама: ' + (known ? known.name : '');
+  openInfoModal(title, loadingHtml());
+  try {
+    const r = await apiRequest(`/api/admin/referrals/${id}?days=${days}`, {headers: authHeaders()});
+    const d = r.details;
+    const st = r.stats;
+    const chips = [7, 30, 90, 365].map(n => `<button class="chip ${n === d.periodDays ? 'active' : ''}" onclick="openReferralDetails(${id}, ${n})">${n === 365 ? 'Год' : n + ' дн.'}</button>`).join('');
+    const users = d.users.map(u => `<tr>
+        <td>${u.username ? '@' + escapeAttr(u.username) : '—'}</td>
+        <td>${escapeAttr([u.firstName, u.lastName].filter(Boolean).join(' ')) || '—'}</td>
+        <td>${fmtDate(u.firstSeenAt)}</td><td>${fmtDate(u.lastSeenAt)}</td>
+      </tr>`).join('');
+    openInfoModal(title, `
+      <div class="muted" style="font-size:12.5px; margin:6px 0 12px;"><span class="link-code">${escapeAttr(r.url)}</span></div>
+      <div class="stat-grid">
+        ${statCardSub(st.opens, 'Переходов', st.openers + ' разных людей')}
+        ${statCardSub(st.newUsers, 'Новых пользователей')}
+        ${statCardSub(pct(st.returned, st.newUsers) + '%', 'Вернулись', st.returned + ' чел.')}
+        ${statCardSub(st.active7d, 'Из них активны за 7 дней')}
+        ${statCardSub(st.viewers, 'Смотрели анкеты')}
+        ${statCardSub(st.contacted, 'Связались со специалистом')}
+        ${statCardSub(st.specialists, 'Подали анкет')}
+        ${statCardSub(money(r.costPerUser, r.currency), 'Цена нового пользователя')}
+      </div>
+      <div class="chip-row">${chips}</div>
+      <div class="section-title" style="margin-top:6px;">Новые пользователи по дням</div>
+      ${barChart(d.daily.map(x => x.newUsers), d.daily.map(x => shortDate(x.date)), shortDate(d.daily[0].date), shortDate(d.daily[d.daily.length - 1].date))}
+      <div class="section-title">Переходы по дням</div>
+      ${barChart(d.daily.map(x => x.opens), d.daily.map(x => shortDate(x.date)), shortDate(d.daily[0].date), shortDate(d.daily[d.daily.length - 1].date))}
+      <div class="two-col">
+        <div>
+          <div class="section-title">Устройства</div>
+          ${hbars(d.platforms.map(p => ({label: PLATFORM_LABELS[p.platform] || p.platform, value: p.users})))}
+        </div>
+        <div>
+          <div class="section-title">Что смотрели пришедшие</div>
+          ${hbars(d.topViewed.map(t => ({label: t.name, value: t.views})), 'Пока ничего')}
+        </div>
+      </div>
+      <div class="section-title">Кто пришёл${d.users.length >= 200 ? ' (последние 200)' : ''}</div>
+      <div class="table-wrap"><table class="data-table">
+        <tr><th>Юзернейм</th><th>Имя</th><th>Первый вход</th><th>Последняя активность</th></tr>
+        ${users || '<tr><td colspan="4">Пока никто</td></tr>'}
+      </table></div>
+    `);
+  } catch(e){
+    openInfoModal(title, `<div class="muted" style="font-size:13px;">Не удалось загрузить: ${escapeAttr(e.message)}</div>`);
+  }
 }
 
 /* ---------- старт ---------- */
 (async function init(){
   document.getElementById('editModalOverlay').addEventListener('click', (e) => {
     if(e.target.id === 'editModalOverlay') closeEditModal();
+  });
+  document.getElementById('infoModalOverlay').addEventListener('click', (e) => {
+    if(e.target.id === 'infoModalOverlay') closeInfoModal();
   });
   if(adminToken){
     await afterLogin();
