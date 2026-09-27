@@ -429,6 +429,7 @@ body{ background:var(--backdrop); }
       <div class="admin-tab" data-tab="referrals" onclick="switchTab('referrals')">Реклама</div>
       <div class="admin-tab" data-tab="prices" onclick="switchTab('prices')">Цены</div>
       <div class="admin-tab" data-tab="broadcast" onclick="switchTab('broadcast')">Рассылка</div>
+      <div class="admin-tab" data-tab="backup" onclick="switchTab('backup')">Бэкапы</div>
     </div>
 
     <div class="admin-tab-content" id="tab-pending">
@@ -547,6 +548,24 @@ body{ background:var(--backdrop); }
       <div class="field-label">БУСТ, 30 ДНЕЙ</div>
       <input class="field-input" style="max-width:220px;" type="number" min="1" id="price-boost30">
       <button class="btn-full" style="margin-top:16px; max-width:220px;" onclick="savePrices()">Сохранить цены</button>
+    </div>
+
+    <div class="admin-tab-content" id="tab-backup" style="display:none;">
+      <div class="list-title">РЕЗЕРВНЫЕ КОПИИ</div>
+      <div class="csv-help">
+        Раз в сутки сервер сам делает полную копию базы (анкеты, фото, пользователи, оплаты, статистика) и присылает её файлом в ваш служебный чат с ботом.
+        Храните эти сообщения и никому не пересылайте файлы: внутри личные данные пользователей.
+        Если с базой что-то случится, из такого файла её можно восстановить целиком.
+      </div>
+      <div id="backup-status" class="stat-grid"></div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:6px;">
+        <button class="btn-small" id="backup-run-btn" onclick="runBackupNow()">Сделать копию сейчас</button>
+        <button class="btn-small ghost" onclick="downloadSpecialistsCsv()">Скачать все анкеты (CSV)</button>
+      </div>
+      <div class="csv-help" style="margin-top:16px;">
+        <b>Сделать копию сейчас</b> — полезно перед большими изменениями. Копия придёт в Telegram через несколько секунд.<br>
+        <b>Скачать все анкеты</b> — простой файл для Excel или Google Таблиц. Его можно загрузить обратно во вкладке «Импорт CSV». В нём нет фото, владельцев анкет и статистики: они есть только в полной копии.
+      </div>
     </div>
 
     <div class="admin-tab-content" id="tab-broadcast" style="display:none;">
@@ -757,6 +776,7 @@ function switchTab(tab){
   if(tab === 'catalog') loadCatalog();
   if(tab === 'stats') loadStats();
   if(tab === 'referrals') loadReferrals();
+  if(tab === 'backup') loadBackupStatus();
   if(tab === 'prices') loadPrices();
 }
 
@@ -1743,6 +1763,57 @@ async function openReferralDetails(id, days){
   } catch(e){
     openInfoModal(title, `<div class="muted" style="font-size:13px;">Не удалось загрузить: ${escapeAttr(e.message)}</div>`);
   }
+}
+
+/* ---------- бэкапы ---------- */
+async function loadBackupStatus(){
+  const el = document.getElementById('backup-status');
+  el.innerHTML = loadingHtml();
+  try {
+    const st = await apiRequest('/api/admin/backup/status', {headers: authHeaders()});
+    const last = st.lastBackupAt ? fmtDate(st.lastBackupAt) : 'ещё не было';
+    const fresh = st.lastBackupAt && (Date.now() - new Date(st.lastBackupAt).getTime()) < 26 * 60 * 60 * 1000;
+    // Ошибка хранится как "дата текст" — показываем дату по-человечески
+    const errMatch = st.lastError ? st.lastError.match(/^(\S+)\s+([\s\S]*)$/) : null;
+    const errText = errMatch ? fmtDate(errMatch[1]) + ': ' + errMatch[2] : st.lastError;
+    const sub = st.lastError ? '⚠️ последняя попытка не удалась' : st.lastBackupAt ? (fresh ? 'всё в порядке' : '⚠️ больше суток назад') : '';
+    el.innerHTML = [
+      statCardSub(escapeAttr(last), 'Последняя копия', sub),
+      statCardSub(st.chatConfigured ? 'Да' : 'Нет', 'Чат для копий настроен', st.chatConfigured ? '' : 'Задайте TELEGRAM_FILE_RELAY_CHAT_ID в Railway'),
+    ].join('') + (st.lastError ? `<div class="csv-help" style="grid-column:1/-1; margin:0;">⚠️ Последняя ошибка: ${escapeAttr(errText)}</div>` : '');
+  } catch(e){
+    el.innerHTML = `<div class="muted" style="font-size:13px;">Не удалось загрузить: ${escapeAttr(e.message)}</div>`;
+  }
+}
+async function runBackupNow(){
+  const btn = document.getElementById('backup-run-btn');
+  btn.disabled = true;
+  btn.textContent = 'Делаем копию…';
+  try {
+    const r = await apiRequest('/api/admin/backup/run', {method: 'POST', headers: authHeaders()});
+    showToast(`Копия отправлена в Telegram: ${r.specialists} анкет, ${r.users} пользователей`);
+  } catch(e){
+    showToast(e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Сделать копию сейчас';
+    loadBackupStatus();
+  }
+}
+async function downloadSpecialistsCsv(){
+  try {
+    const res = await fetch(API_BASE + '/api/admin/backup/specialists.csv', {headers: authHeaders()});
+    if(!res.ok) throw new Error('Не удалось скачать файл');
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'krug-specialists-' + new Date().toISOString().slice(0, 10) + '.csv';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  } catch(e){ showToast(e.message); }
 }
 
 /* ---------- старт ---------- */
