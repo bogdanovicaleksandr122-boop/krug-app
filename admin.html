@@ -383,6 +383,11 @@ body{ background:var(--backdrop); }
 .ref-form{ background:var(--paper-soft); border-radius:18px; padding:4px 16px 18px; margin-bottom:10px; }
 .ref-form .field-input{ background:var(--paper); }
 .muted{ color:var(--muted); }
+/* кружок загрузки — вместо слов "Загрузка…" во всей админке */
+@keyframes spin{ to{ transform:rotate(360deg); } }
+.loader{ display:flex; justify-content:center; align-items:center; padding:28px 0; width:100%; }
+.spinner{ width:26px; height:26px; border:2.5px solid var(--line); border-top-color:var(--ink); border-radius:50%; animation:spin .8s linear infinite; flex-shrink:0; }
+.btn-small .spinner, .btn-full .spinner{ width:14px; height:14px; border-width:2px; border-color:rgba(255,255,255,.35); border-top-color:#fff; display:inline-block; vertical-align:middle; }
 </style>
 </head>
 <body>
@@ -395,7 +400,7 @@ body{ background:var(--backdrop); }
         <div class="admin-header-title">Админ-панель</div>
       </div>
     </div>
-    <div id="login-loading" class="muted" style="font-size:13px;">Загрузка…</div>
+    <div id="login-loading"><div class="loader"><div class="spinner"></div></div></div>
     <div id="login-telegram" style="display:none;">
       <div class="csv-help">Вход только для владельца КРУГ. Нажмите кнопку ниже и подтвердите вход в Telegram.</div>
       <div id="tg-login-widget" style="min-height:48px;"></div>
@@ -456,8 +461,8 @@ body{ background:var(--backdrop); }
       <div class="csv-help">
         Загрузите CSV со специалистами. Если указанные страна/город/категория/подкатегория ещё не существуют — они будут созданы автоматически, анкета привяжется к ним.<br><br>
         Обязательные колонки в заголовке: <code>country, city, category, subcategory, name, role</code>.<br>
-        Необязательные: <code>category_icon, about, langs, services, contactsTelegram, contactsInstagram, contactsPhone, contactsWebsite, locationAddress, status, verified, pro, boosted</code>.<br><br>
-        В колонках <code>langs</code> и <code>services</code> перечисляйте значения через вертикальную черту: <code>RU|UA</code>.<br>
+        Необязательные: <code>category_icon, about, services, contactsTelegram, contactsInstagram, contactsPhone, contactsWebsite, locationAddress, status, verified, pro, boosted</code>.<br><br>
+        В колонке <code>services</code> перечисляйте услуги через вертикальную черту: <code>Маникюр|Педикюр</code>.<br>
         В <code>verified</code>/<code>pro</code>/<code>boosted</code> пишите <code>да</code> или <code>нет</code>. Если не указать <code>status</code> — анкета сразу публикуется.
       </div>
       <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px;">
@@ -626,7 +631,7 @@ function authHeaders(extra){
 }
 function mapApiSpecialist(s){
   return {
-    id: s.id, name: s.name, langs: s.langs || [], role: s.role, about: s.about,
+    id: s.id, name: s.name, role: s.role, about: s.about,
     services: s.services || [],
     contacts: {
       telegram: s.contactsTelegram || undefined,
@@ -708,7 +713,7 @@ function mountTelegramWidget(botUsername){
   box.appendChild(script);
 }
 async function onTelegramAuth(user){
-  showLoginStatus('Проверяем вход…');
+  showLoginStatus('<div class="loader"><div class="spinner"></div></div>');
   try {
     const res = await fetch(API_BASE + '/api/admin/login/telegram', {
       method: 'POST',
@@ -783,7 +788,7 @@ function switchTab(tab){
 /* ---------- заявки на проверке ---------- */
 let adminPending = [];
 async function loadAdminPending(){
-  document.getElementById('admin-items').innerHTML = `<div style="padding:20px; color:var(--muted); font-size:13px;">Загрузка…</div>`;
+  document.getElementById('admin-items').innerHTML = loadingHtml();
   try {
     const pending = await apiRequest('/api/admin/pending', {headers: authHeaders()});
     adminPending = pending.map(mapApiSpecialist);
@@ -793,12 +798,11 @@ async function loadAdminPending(){
   }
 }
 const FIELD_LABELS = {
-  name: 'Имя', langs: 'Языки', about: 'О себе', services: 'Услуги',
+  name: 'Имя', about: 'О себе', services: 'Услуги',
   contactsTelegram: 'Telegram', contactsInstagram: 'Instagram', contactsPhone: 'Телефон', contactsWebsite: 'Сайт',
   locationAddress: 'Адрес', cityId: 'Город', photoFileId: 'Фото',
 };
 function oldDiffValue(s, key){
-  if(key === 'langs') return (s.langs||[]).join(', ') || '—';
   if(key === 'services') return (s.services||[]).join(', ') || '—';
   if(key === 'name') return s.name || '—';
   if(key === 'about') return s.about || '—';
@@ -813,7 +817,7 @@ function oldDiffValue(s, key){
 }
 function newDiffValue(pc, key){
   const v = pc[key];
-  if(key === 'langs' || key === 'services') return (v||[]).join(', ') || '—';
+  if(key === 'services') return (v||[]).join(', ') || '—';
   if(key === 'cityId'){ const c = catalogCities.find(x => x.id === v); return c ? c.label : (v || '—'); }
   if(key === 'photoFileId') return v ? '(новое фото, см. превью ниже)' : '—';
   return v || '—';
@@ -821,7 +825,8 @@ function newDiffValue(pc, key){
 function pendingChangesHtml(s){
   if(!s.pendingChanges) return '';
   const keys = Object.keys(s.pendingChanges);
-  const rows = keys.filter(k => k !== 'photoFileId').map(k => `
+  // Языки анкет больше не используются — старые правки с ними не показываем
+  const rows = keys.filter(k => k !== 'photoFileId' && k !== 'langs').map(k => `
     <div class="admin-detail-row"><span>${FIELD_LABELS[k]||k}</span><span>«${escapeAttr(oldDiffValue(s,k))}» → «${escapeAttr(newDiffValue(s.pendingChanges,k))}»</span></div>
   `).join('');
   const photoRow = s.pendingChanges.photoFileId ? `
@@ -845,7 +850,6 @@ function adminCardHtml(s){
     <div class="admin-detail-row"><span>Категория</span><span>${cat ? escapeAttr(cat.label) : escapeAttr(s.catId)} → ${sub ? escapeAttr(sub.label) : escapeAttr(s.subcatId)}</span></div>
     <div class="admin-detail-row"><span>Имя</span><span>${escapeAttr(s.name)}</span></div>
     <div class="admin-detail-row"><span>Город</span><span>${city ? escapeAttr(city.label) : '—'}</span></div>
-    <div class="admin-detail-row"><span>Языки</span><span>${escapeAttr(s.langs.join('/')) || '—'}</span></div>
     <div class="admin-detail-row"><span>Услуги</span><span>${escapeAttr(s.services.join(', ')) || '—'}</span></div>
     <div class="admin-detail-row"><span>Контакты</span><span>${contactsList}</span></div>
     <div class="admin-detail-row"><span>Адрес</span><span>${s.location ? escapeAttr(s.location.address) : 'Без адреса'}</span></div>
@@ -918,7 +922,7 @@ async function loadAllSpecialists(){
   const params = new URLSearchParams();
   if(status) params.set('status', status);
   if(search) params.set('search', search);
-  document.getElementById('all-items').innerHTML = `<div style="padding:20px; color:var(--muted); font-size:13px;">Загрузка…</div>`;
+  document.getElementById('all-items').innerHTML = loadingHtml();
   try {
     allSpecialists = await apiRequest('/api/admin/specialists?' + params.toString(), {headers: authHeaders()});
     renderAllSpecialists();
@@ -1006,8 +1010,6 @@ function editFormHtml(s){
     <select class="field-input" id="ef-city"></select>
     <div class="field-label">О СЕБЕ</div>
     <textarea class="field-input" id="ef-about" style="min-height:70px;">${escapeAttr(s.about)}</textarea>
-    <div class="field-label">ЯЗЫКИ (через запятую)</div>
-    <input class="field-input" id="ef-langs" value="${escapeAttr((s.langs||[]).join(', '))}">
     <div class="field-label">УСЛУГИ (через запятую)</div>
     <input class="field-input" id="ef-services" value="${escapeAttr((s.services||[]).join(', '))}">
     <div class="field-row-2">
@@ -1081,7 +1083,6 @@ async function saveEditForm(){
     subcategoryId: document.getElementById('ef-subcategory').value,
     cityId: document.getElementById('ef-city').value || null,
     about: document.getElementById('ef-about').value.trim(),
-    langs: document.getElementById('ef-langs').value.split(',').map(s=>s.trim()).filter(Boolean),
     services: document.getElementById('ef-services').value.split(',').map(s=>s.trim()).filter(Boolean),
     contactsTelegram: document.getElementById('ef-telegram').value.trim() || null,
     contactsPhone: document.getElementById('ef-phone').value.trim() || null,
@@ -1157,7 +1158,7 @@ async function sendBroadcast(){
   const btn = document.getElementById('broadcast-btn');
   const resultEl = document.getElementById('broadcast-result');
   btn.disabled = true;
-  btn.textContent = 'Отправка…';
+  btn.innerHTML = '<span class="spinner"></span>';
   resultEl.textContent = '';
   try {
     const result = await apiRequest('/api/admin/broadcast', {
@@ -1175,8 +1176,8 @@ async function sendBroadcast(){
 
 /* ---------- импорт CSV ---------- */
 function downloadCsvTemplate(){
-  const header = 'country,city,category,category_icon,subcategory,name,role,about,langs,services,contactsTelegram,contactsInstagram,contactsPhone,contactsWebsite,locationAddress,status,verified,pro,boosted';
-  const example = 'Bulgaria,София,Красота и уход,sparkle,Маникюр/педикюр,Мария И.,Маникюр/педикюр,Работаю на дому,RU|UA,Классический маникюр|Покрытие гель-лаком,@maria_nails,,+359881112233,,ул. Витоша 1,published,да,нет,нет';
+  const header = 'country,city,category,category_icon,subcategory,name,role,about,services,contactsTelegram,contactsInstagram,contactsPhone,contactsWebsite,locationAddress,status,verified,pro,boosted';
+  const example = 'Bulgaria,София,Красота и уход,sparkle,Маникюр/педикюр,Мария И.,Маникюр/педикюр,Работаю на дому,Классический маникюр|Покрытие гель-лаком,@maria_nails,,+359881112233,,ул. Витоша 1,published,да,нет,нет';
   const blob = new Blob(['\ufeff' + header + '\n' + example + '\n'], {type:'text/csv;charset=utf-8;'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -1188,7 +1189,7 @@ async function uploadCsv(){
   const input = document.getElementById('csv-file-input');
   if(!input.files.length){ showToast('Выберите файл'); return; }
   const text = await input.files[0].text();
-  document.getElementById('csv-result').innerHTML = `<div style="color:var(--muted); font-size:13px;">Загрузка…</div>`;
+  document.getElementById('csv-result').innerHTML = loadingHtml();
   try {
     const res = await fetch(API_BASE + '/api/admin/specialists/bulk-csv', {
       method:'POST',
@@ -1296,7 +1297,7 @@ async function saveCity(id){
 /* ---------- статистика ---------- */
 async function loadStats(){
   loadAnalytics();
-  document.getElementById('stats-grid').innerHTML = `<div style="padding:20px; color:var(--muted); font-size:13px;">Загрузка…</div>`;
+  document.getElementById('stats-grid').innerHTML = loadingHtml();
   try {
     const [stats, users] = await Promise.all([
       apiRequest('/api/admin/stats', {headers: authHeaders()}),
@@ -1371,7 +1372,7 @@ let analyticsMetric = 'newUsers';
 
 function pct(part, whole){ return whole ? Math.round(part / whole * 1000) / 10 : 0; }
 function shortDate(iso){ const [y, m, d] = iso.split('-'); return d + '.' + m; }
-function loadingHtml(){ return `<div style="padding:20px; color:var(--muted); font-size:13px;">Загрузка…</div>`; }
+function loadingHtml(){ return '<div class="loader"><div class="spinner"></div></div>'; }
 
 // Столбиковый график: values — числа, labels — подписи для подсказки при наведении
 function barChart(values, labels, legendLeft, legendRight){
@@ -1788,7 +1789,7 @@ async function loadBackupStatus(){
 async function runBackupNow(){
   const btn = document.getElementById('backup-run-btn');
   btn.disabled = true;
-  btn.textContent = 'Делаем копию…';
+  btn.innerHTML = '<span class="spinner"></span>';
   try {
     const r = await apiRequest('/api/admin/backup/run', {method: 'POST', headers: authHeaders()});
     showToast(`Копия отправлена в Telegram: ${r.specialists} анкет, ${r.users} пользователей`);

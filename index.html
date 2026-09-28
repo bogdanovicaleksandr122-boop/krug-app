@@ -146,7 +146,6 @@ a:hover{color:var(--muted);}
 .spec-info{flex:1; min-width:0;}
 .spec-name-row{display:flex; align-items:center; gap:6px; flex-wrap:wrap;}
 .spec-name{font-weight:800; font-size:14.5px;}
-.lang-tag{font-size:10px; font-weight:700; color:var(--muted); border:1px solid var(--line); border-radius:6px; padding:1px 5px;}
 .spec-role{font-size:12.5px; color:var(--muted); margin-top:2px;}
 .fav-btn{width:38px; height:38px; border-radius:50%; border:2.2px solid var(--line); background:var(--paper); display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; transition:border-color .2s ease, transform .2s var(--ease);}
 .fav-btn.active{border-color:var(--ink); animation:favPop .4s var(--ease);}
@@ -338,6 +337,11 @@ textarea.field-input{resize:vertical; min-height:80px; line-height:1.4;}
 
 .toast{position:absolute; left:50%; bottom:26px; transform:translate(-50%,12px); background:var(--ink); color:var(--paper); padding:11px 18px; border-radius:999px; font-size:12.5px; font-weight:700; opacity:0; pointer-events:none; transition:all .35s var(--ease-soft); z-index:30; white-space:nowrap; max-width:88%; text-align:center;}
 .toast.show{opacity:1; transform:translate(-50%,0);}
+/* кружок загрузки — один на всё приложение, без текста */
+@keyframes spin{to{transform:rotate(360deg);}}
+.loader{display:flex; justify-content:center; align-items:center; padding:32px 0; width:100%;}
+.spinner{width:26px; height:26px; border:2.5px solid var(--line); border-top-color:var(--ink); border-radius:50%; animation:spin .8s linear infinite; flex-shrink:0;}
+.toast .spinner{width:16px; height:16px; border-width:2px; border-color:rgba(255,255,255,.3); border-top-color:#fff; display:inline-block; vertical-align:middle;}
 
 </style>
 </head>
@@ -736,7 +740,6 @@ function mapApiSpecialist(s){
   return {
     id: s.id,
     name: s.name,
-    langs: s.langs || [],
     role: s.role,
     about: s.about,
     services: s.services || [],
@@ -776,11 +779,73 @@ function mapApiCategory(c){
 // (пользователь в моменте видит от силы десяток карточек одной подкатегории одного
 // города). Теперь анкеты подгружаются по запросу: при открытии конкретной подкатегории
 // (см. openSubcategory), через поиск (см. performSearch) или по id (см. openProfileById).
+/* ---------- кэш на устройстве ---------- */
+// Каталог (категории, города), цены и списки анкет сохраняем на телефоне, чтобы при
+// каждом открытии приложения не спрашивать сервер заново. Если сервер недоступен —
+// показываем то, что сохранено, даже если оно устарело. Хранилище браузера может
+// быть недоступно (приватный режим) — тогда просто работаем без кэша.
+const CACHE_PREFIX = 'krug_cache_v1:';
+const CATALOG_CACHE_MS = 6 * 60 * 60 * 1000;   // категории и города меняются редко
+const PRICES_CACHE_MS = 30 * 60 * 1000;        // цены — чаще, но итоговую сумму всё равно показывает Telegram при оплате
+const LIST_CACHE_MS = 10 * 60 * 1000;          // списки анкет в разделе
+const LIST_CACHE_MAX = 30;                     // сколько последних разделов помнить
+function cacheRead(key){
+  try {
+    const raw = localStorage.getItem(CACHE_PREFIX + key);
+    return raw ? JSON.parse(raw) : null;
+  } catch(e){ return null; }
+}
+function cacheWrite(key, data){
+  const value = JSON.stringify({t: Date.now(), data});
+  try { localStorage.setItem(CACHE_PREFIX + key, value); }
+  catch(e){
+    // Место закончилось — удаляем сохранённые списки анкет и пробуем ещё раз
+    cacheClearLists();
+    try { localStorage.setItem(CACHE_PREFIX + key, value); } catch(e2){}
+  }
+}
+function cacheListKeys(){
+  const keys = [];
+  try {
+    for(let i = 0; i < localStorage.length; i++){
+      const k = localStorage.key(i);
+      if(k && k.indexOf(CACHE_PREFIX + 'list:') === 0) keys.push(k);
+    }
+  } catch(e){}
+  return keys;
+}
+function cacheClearLists(){
+  cacheListKeys().forEach(k => { try { localStorage.removeItem(k); } catch(e){} });
+}
+// Оставляем только последние LIST_CACHE_MAX списков, чтобы не забивать память телефона
+function cachePruneLists(){
+  const entries = cacheListKeys().map(k => {
+    let t = 0;
+    try { t = JSON.parse(localStorage.getItem(k)).t || 0; } catch(e){}
+    return {k, t};
+  }).sort((a, b) => b.t - a.t);
+  entries.slice(LIST_CACHE_MAX).forEach(e => { try { localStorage.removeItem(e.k); } catch(err){} });
+}
+// Берёт свежие данные из кэша, иначе спрашивает сервер; если сервер не ответил —
+// отдаёт устаревшую копию из кэша (лучше старые данные, чем пустой экран).
+async function cachedApi(key, path, maxAgeMs){
+  const cached = cacheRead(key);
+  if(cached && Date.now() - cached.t < maxAgeMs) return cached.data;
+  try {
+    const data = await apiRequest(path);
+    cacheWrite(key, data);
+    return data;
+  } catch(e){
+    if(cached) return cached.data;
+    throw e;
+  }
+}
+
 async function loadPublicData(){
   const [categories, cities, prices] = await Promise.all([
-    apiRequest('/api/categories'),
-    apiRequest('/api/cities'),
-    apiRequest('/api/prices')
+    cachedApi('categories', '/api/categories', CATALOG_CACHE_MS),
+    cachedApi('cities', '/api/cities', CATALOG_CACHE_MS),
+    cachedApi('prices', '/api/prices', PRICES_CACHE_MS)
   ]);
 
   PRO_PRICE = prices.pro_price;
@@ -880,12 +945,15 @@ function renderSubcatPanel(){
 }
 
 /* ---------- list ---------- */
-// Кэш уже открытых за сессию сочетаний "подкатегория+город" — чтобы при возврате
-// назад в тот же раздел не дёргать сервер заново. TTL — 2 минуты: этого достаточно,
-// чтобы не грузить сеть при обычной навигации, но и не показывать сильно устаревший
-// список, если за это время что-то изменилось (одобрили анкету, купили буст и т.п.).
-const subcategoryListCache = {};
-const LIST_CACHE_TTL_MS = 2 * 60 * 1000;
+// Уже открытые сочетания "подкатегория+город" сохраняются на телефоне на 10 минут
+// (LIST_CACHE_MS, см. кэш выше) — и при возврате в раздел, и при повторном открытии
+// приложения сервер не спрашивается заново. Дольше не держим, чтобы новые анкеты и
+// купленные бусты появлялись в списке без большой задержки.
+function listFromApi(results){
+  const specs = results.map(mapApiSpecialist);
+  specs.forEach(s => { ALL_SPECIALISTS[s.id] = s; });
+  return specs;
+}
 
 async function openSubcategory(catId, subId){
   currentListSource = 'catalog';
@@ -897,20 +965,27 @@ async function openSubcategory(catId, subId){
   showScreen('list');
 
   const requestCity = currentCity;
-  const cacheKey = subId + '__' + requestCity;
-  const cached = subcategoryListCache[cacheKey];
-  if(cached && (Date.now() - cached.fetchedAt) < LIST_CACHE_TTL_MS){
-    renderList(sortForDisplay(cached.specs), 'list');
+  const cacheKey = 'list:' + subId + '__' + requestCity;
+  const cached = cacheRead(cacheKey);
+  if(cached && (Date.now() - cached.t) < LIST_CACHE_MS){
+    renderList(sortForDisplay(listFromApi(cached.data)), 'list');
     return;
   }
 
-  document.getElementById('list-items').innerHTML = `<div style="padding:20px; color:var(--muted); font-size:13px;">Загрузка…</div>`;
+  document.getElementById('list-items').innerHTML = LOADER_HTML;
   try {
     const params = new URLSearchParams({subcategoryId: subId, cityId: requestCity});
-    const results = await apiRequest('/api/specialists?' + params.toString());
-    const specs = results.map(mapApiSpecialist);
-    specs.forEach(s => { ALL_SPECIALISTS[s.id] = s; });
-    subcategoryListCache[cacheKey] = {specs, fetchedAt: Date.now()};
+    let results;
+    try {
+      results = await apiRequest('/api/specialists?' + params.toString());
+      cacheWrite(cacheKey, results);
+      cachePruneLists();
+    } catch(err){
+      // Нет связи — показываем последнюю сохранённую версию раздела, если она есть
+      if(!cached) throw err;
+      results = cached.data;
+    }
+    const specs = listFromApi(results);
     // Пока грузилось — пользователь мог уйти в другую подкатегорию или сменить город;
     // в этом случае не подменяем то, что он уже смотрит, результатом старого запроса.
     if(currentListSubId === subId && currentCity === requestCity){
@@ -941,7 +1016,7 @@ async function performSearch(rawQuery){
   currentListSource = 'search';
 
   document.getElementById('list-title').textContent = 'ПОИСК: ' + query.toUpperCase();
-  document.getElementById('list-items').innerHTML = `<div style="padding:20px; color:var(--muted); font-size:13px;">Ищем…</div>`;
+  document.getElementById('list-items').innerHTML = LOADER_HTML;
   showScreen('list');
 
   try {
@@ -988,7 +1063,6 @@ function renderSpecialistCard(spec, returnTo){
       <div class="spec-info">
         <div class="spec-name-row">
           <span class="spec-name">${escapeAttr(spec.name)}</span>
-          ${spec.langs.map(l => `<span class="lang-tag">${escapeAttr(l)}</span>`).join('')}
           ${spec.verified ? `<svg class="verified-mini" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">${CHECK}</svg>` : ''}
           ${spec.pro ? `<span class="pro-chip">PRO</span>` : ''}
         </div>
@@ -1085,7 +1159,7 @@ function fillProfile(spec){
   document.getElementById('profile-avatar').innerHTML = spec.photoFileId
     ? `<img src="${API_BASE}/api/specialists/${spec.id}/photo${v}" alt="" style="width:100%; height:100%; object-fit:cover; border-radius:50%;" onerror="this.parentElement.innerHTML='<svg viewBox=\\'0 0 24 24\\' fill=\\'currentColor\\'><circle cx=\\'12\\' cy=\\'8\\' r=\\'4\\'/><path d=\\'M4 20c0-4.4 3.6-7 8-7s8 2.6 8 7\\'/></svg>'">`
     : `<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>`;
-  document.getElementById('p-name').textContent = spec.name + ' (' + spec.langs.join('/') + ')';
+  document.getElementById('p-name').textContent = spec.name;
   document.getElementById('p-role').textContent = spec.role;
   document.getElementById('p-verified').innerHTML = renderProfileBadges(spec);
   document.getElementById('p-about').textContent = spec.about;
@@ -1095,7 +1169,7 @@ function fillProfile(spec){
   document.getElementById('p-contacts').innerHTML = renderContactsBlock(spec);
   document.getElementById('p-location').innerHTML = locationBlockHtml(spec);
   document.getElementById('p-claim').innerHTML = spec.verified ? '' : `
-    <div class="claim-block"><button class="claim-link" onclick="openClaimSheet(${spec.id})">Это ваша анкета? Подтвердить</button></div>
+    <div class="claim-block"><button class="claim-link" onclick="openClaimIntro(${spec.id})">Это ваша анкета? Подтвердить</button></div>
   `;
   document.getElementById('p-id').textContent = spec.publicId ? '№ ' + spec.publicId : '';
   document.getElementById('p-member-since').textContent = memberSinceLabel(spec.createdAt);
@@ -1140,7 +1214,7 @@ async function shareSpecialist(){
   trackEvent(spec.id, 'share');
   if(canShareCard()){
     shareInProgress = true;
-    showToast('Готовим карточку…');
+    showSpinnerToast();
     try {
       const prepared = await apiRequest(`/api/specialists/${spec.id}/share-prepare`, {method: 'POST'});
       lastSharedSpec = spec;
@@ -1470,6 +1544,36 @@ function openCityModal(){
 
 /* ---------- claim ownership ---------- */
 let claimSpecId = null;
+let claimCode = null;
+// Первый шаг: объясняем, что откроется после подтверждения, и только потом — сама проверка
+function openClaimIntro(id){
+  claimSpecId = id;
+  const row = (title, text) => `
+    <div class="benefit-row" style="align-items:flex-start;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-top:2px;">${CHECK}</svg>
+      <div><b>${title}</b><div class="note-text">${text}</div></div>
+    </div>`;
+  document.getElementById('claim-content').innerHTML = `
+    <div class="note-text" style="margin-bottom:8px;">Если это ваша анкета, подтвердите это — и вам откроется:</div>
+    ${row('Продвижение', 'PRO-статус и буст, чтобы анкету видели чаще и выше в списке')}
+    ${row('Статистика', 'Сколько людей смотрят анкету и как с вами связываются')}
+    ${row('Редактирование', 'Меняйте описание, услуги, контакты и фото')}
+    ${row('Удаление', 'Уберите анкету из каталога, когда захотите')}
+    <button class="btn-full" style="margin-top:18px;" onclick="openClaimSheet(${id})">Подтвердить владение</button>
+  `;
+  document.getElementById('claimSheet').classList.add('open');
+  document.getElementById('claimOverlay').classList.add('open');
+}
+// Проверка по коду: человек размещает код в Instagram или на сайте, заявка уходит
+// владельцу приложения, он сверяет код и назначает владельца анкеты в админке.
+function renderClaimCode(introText){
+  claimCode = 'KRUG-' + Math.floor(1000 + Math.random() * 9000);
+  document.getElementById('claim-content').innerHTML = `
+    <div class="note-text">${introText} Добавьте код ниже в описание вашего Instagram или на сайт на несколько дней — мы проверим вручную и напишем вам в бота.</div>
+    <div class="code-chip">${claimCode}</div>
+    <button class="btn-full" onclick="confirmClaimCode()">Код добавлен — отправить на проверку</button>
+  `;
+}
 function openClaimSheet(id){
   claimSpecId = id;
   const spec = ALL_SPECIALISTS[id];
@@ -1488,12 +1592,7 @@ function openClaimSheet(id){
       <button class="btn-full" style="margin-top:20px;" onclick="confirmClaimTelegram()">Подтвердить, что это я</button>
     `;
   } else {
-    const code = 'KRUG-' + Math.floor(1000 + Math.random() * 9000);
-    content.innerHTML = `
-      <div class="note-text">У этой анкеты нет Telegram, поэтому мгновенная проверка недоступна. Добавьте код ниже в описание вашего Instagram или на сайт на несколько минут — мы проверим вручную.</div>
-      <div class="code-chip">${code}</div>
-      <button class="btn-full" onclick="confirmClaimCode()">Код добавлен — отправить на проверку</button>
-    `;
+    renderClaimCode('У этой анкеты нет Telegram, поэтому мгновенная проверка недоступна.');
   }
   document.getElementById('claimSheet').classList.add('open');
   document.getElementById('claimOverlay').classList.add('open');
@@ -1505,27 +1604,44 @@ function closeClaimSheet(){
 async function confirmClaimTelegram(){
   const spec = ALL_SPECIALISTS[claimSpecId];
   ensureBotWriteAccess();
+  document.getElementById('claim-content').innerHTML = LOADER_HTML;
   try {
     const result = await apiRequest(`/api/me/specialists/${spec.id}/claim`, {method: 'POST'});
-    closeClaimSheet();
     if(result.verified){
+      closeClaimSheet();
       spec.verified = true;
       MY_LISTING_IDS.add(spec.id);
       fillProfile(spec);
       renderCurrentList();
       if(document.getElementById('screen-favorites').classList.contains('active')) renderFavoritesScreen();
+      if(document.getElementById('screen-cabinet').classList.contains('active')) renderCabinetScreen();
       showToast('Анкета подтверждена ✓');
     } else {
-      showToast(result.message || 'Автоматическое подтверждение не сработало');
+      // Telegram в анкете не совпал с аккаунтом — предлагаем проверку по коду
+      renderClaimCode('Telegram в анкете не совпадает с вашим аккаунтом.');
     }
   } catch(e){
     closeClaimSheet();
     showToast('Не удалось проверить анкету, попробуйте позже');
   }
 }
-function confirmClaimCode(){
-  closeClaimSheet();
-  showToast('Заявка на проверку отправлена. Обычно это занимает меньше суток.');
+async function confirmClaimCode(){
+  const id = claimSpecId;
+  const code = claimCode;
+  ensureBotWriteAccess();
+  document.getElementById('claim-content').innerHTML = LOADER_HTML;
+  try {
+    await apiRequest(`/api/me/specialists/${id}/claim-request`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({code})
+    });
+    closeClaimSheet();
+    showToast('Заявка отправлена. Обычно проверка занимает меньше суток.');
+  } catch(e){
+    closeClaimSheet();
+    showToast(e.message || 'Не удалось отправить заявку, попробуйте позже');
+  }
 }
 
 /* ---------- add-specialist form ---------- */
@@ -1534,7 +1650,7 @@ function resetAddForm(){
   addForm = {
     step: 1,
     category: null, subcat: null,
-    name: '', city: currentCity, langs: new Set(), about: '', services: [''],
+    name: '', city: currentCity, about: '', services: [''],
     contacts: {telegram:'', instagram:'', phone:'', website:''},
     claimSelf: false,
     hasLocation: true, address: ''
@@ -1554,7 +1670,6 @@ function pickSubcatForForm(){
 function pickCityForForm(){
   openLocationPicker(addForm.city, (id) => { addForm.city = id; renderAddStep(); });
 }
-function toggleFormLang(l){ addForm.langs.has(l) ? addForm.langs.delete(l) : addForm.langs.add(l); renderAddStep(); }
 function updateService(i, val){ addForm.services[i] = val; }
 function addService(){ addForm.services.push(''); renderAddStep(); }
 function removeService(i){ addForm.services.splice(i,1); renderAddStep(); }
@@ -1584,11 +1699,6 @@ function stepInfoHtml(){
     <div class="form-row" onclick="pickCityForForm()">
       <div class="form-row-label">${CITIES.find(c => c.id === addForm.city).label}</div>
       <div class="form-row-value">Изменить ${chevronRight()}</div>
-    </div>
-
-    <div class="field-label">ЯЗЫКИ ОБЩЕНИЯ</div>
-    <div class="chip-toggle-row">
-      ${['RU','UA'].map(l => `<button class="chip-toggle ${addForm.langs.has(l) ? 'active' : ''}" onclick="toggleFormLang('${l}')">${l}</button>`).join('')}
     </div>
 
     <div class="field-label">ОБО МНЕ</div>
@@ -1661,7 +1771,6 @@ function stepReviewHtml(){
       <div class="review-row"><span class="review-row-label">Категория</span><span class="review-row-value">${cat.label} → ${sub.label}</span></div>
       <div class="review-row"><span class="review-row-label">Имя</span><span class="review-row-value">${escapeAttr(addForm.name) || '—'}</span></div>
       <div class="review-row"><span class="review-row-label">Город</span><span class="review-row-value">${CITIES.find(c => c.id === addForm.city).label}</span></div>
-      <div class="review-row"><span class="review-row-label">Языки</span><span class="review-row-value">${escapeAttr(Array.from(addForm.langs).join('/')) || '—'}</span></div>
       <div class="review-row"><span class="review-row-label">Услуги</span><span class="review-row-value">${escapeAttr(addForm.services.filter(s => s.trim()).join(', ')) || '—'}</span></div>
       <div class="review-row"><span class="review-row-label">Контакты</span><span class="review-row-value">${filledContacts.map(t => CONTACT_LABELS[t]).join(', ') || '—'}</span></div>
       <div class="review-row"><span class="review-row-label">Адрес</span><span class="review-row-value">${addForm.hasLocation ? (escapeAttr(addForm.address) || '—') : 'Без адреса'}</span></div>
@@ -1719,7 +1828,6 @@ async function createSubmissionFromForm(){
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({
       name: addForm.name.trim(),
-      langs: Array.from(addForm.langs),
       role: sub.label,
       about: addForm.about.trim(),
       services: addForm.services.map(s => s.trim()).filter(Boolean),
@@ -1784,6 +1892,17 @@ async function nextAddStep(){
 
 /* ---------- toast ---------- */
 let toastTimer;
+// Кружок загрузки для всех мест, где ждём ответа сервера
+const LOADER_HTML = '<div class="loader"><div class="spinner"></div></div>';
+// Всплывашка с кружком вместо текста (например, пока готовится карточка "поделиться").
+// Сама скрывается через 8 секунд или когда покажется обычное сообщение.
+function showSpinnerToast(){
+  const t = document.getElementById('toast');
+  t.innerHTML = '<span class="spinner"></span>';
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 8000);
+}
 function showToast(msg){
   const t = document.getElementById('toast');
   t.textContent = msg;
@@ -1810,7 +1929,7 @@ async function loadMyListingsFromServer(){
       </div>`;
     return;
   }
-  document.getElementById('cabinet-items').innerHTML = `<div style="padding:20px; color:var(--muted); font-size:13px;">Загрузка…</div>`;
+  document.getElementById('cabinet-items').innerHTML = LOADER_HTML;
   try {
     const mine = await apiRequest('/api/me/specialists');
     MY_LISTING_IDS = new Set();
@@ -1853,13 +1972,17 @@ function cabinetCardHtml(s){
         <br><button class="subcat-chip" style="margin-top:8px;" onclick="dismissEditRejection(${s.id})">Понятно</button>
       </div>
     ` : ''}
-    ${s.status === 'published' ? `
+    ${!s.verified && s.status !== 'rejected' ? `
+      <div class="note-text" style="margin-top:10px;">Вы добавили эту анкету в каталог. Управлять ею может только её владелец после подтверждения.</div>
+      <div class="cabinet-actions">
+        <button class="subcat-chip" onclick="openClaimIntro(${s.id})">Подтвердить владение анкетой</button>
+      </div>
+    ` : ''}
+    ${s.verified && s.status === 'published' ? `
       <div class="cabinet-actions">
         <button class="subcat-chip" onclick="openMoneySheet(${s.id}, 'pro')">${s.pro ? 'PRO подключён' : 'Оформить PRO'}</button>
         <button class="subcat-chip" onclick="openMoneySheet(${s.id}, 'boost')">${s.boosted ? 'Буст активен' : 'Забустить'}</button>
       </div>
-    ` : ''}
-    ${s.verified && s.status === 'published' ? `
       <div class="cabinet-actions" style="margin-top:8px;">
         <button class="subcat-chip" onclick="openOwnStatsSheet(${s.id})">📊 Статистика</button>
       </div>
@@ -1941,8 +2064,6 @@ function editOwnFormHtml(s){
     <textarea class="field-input" id="eo-about" style="min-height:70px;">${escapeAttr(s.about)}</textarea>
     <div class="field-label">УСЛУГИ (через запятую)</div>
     <input class="field-input" id="eo-services" value="${escapeAttr(s.services.join(', '))}">
-    <div class="field-label">ЯЗЫКИ (через запятую)</div>
-    <input class="field-input" id="eo-langs" value="${escapeAttr(s.langs.join(', '))}">
     <div class="field-label">TELEGRAM</div>
     <input class="field-input" id="eo-telegram" value="${escapeAttr(s.contacts.telegram)}">
     <div class="field-label">ТЕЛЕФОН</div>
@@ -1962,7 +2083,6 @@ async function saveEditOwnForm(){
     cityId: document.getElementById('eo-city').value,
     about: document.getElementById('eo-about').value.trim(),
     services: document.getElementById('eo-services').value.split(',').map(s=>s.trim()).filter(Boolean),
-    langs: document.getElementById('eo-langs').value.split(',').map(s=>s.trim()).filter(Boolean),
     contactsTelegram: document.getElementById('eo-telegram').value.trim() || null,
     contactsPhone: document.getElementById('eo-phone').value.trim() || null,
     contactsInstagram: document.getElementById('eo-instagram').value.trim() || null,
@@ -1995,12 +2115,12 @@ const CONTACT_STAT_LABELS = {telegram:'Telegram', phone:'Телефон', instag
 const VIEW_SOURCE_LABELS = {catalog:'Из каталога', search:'Из поиска', favorites:'Из избранного', share:'По ссылке «поделиться»', ref:'Из рекламы КРУГ', other:'Другое', unknown:'Другое'};
 async function openOwnStatsSheet(id){
   const content = document.getElementById('own-stats-content');
-  content.innerHTML = `<div class="note-text" style="padding:10px 0;">Загрузка…</div>`;
+  content.innerHTML = LOADER_HTML;
   document.getElementById('ownStatsSheet').classList.add('open');
   document.getElementById('ownStatsOverlay').classList.add('open');
   try {
     const st = await apiRequest(`/api/me/specialists/${id}/stats`);
-    content.innerHTML = ownStatsHtml(st);
+    content.innerHTML = st.limited ? ownStatsLimitedHtml(st, id) : ownStatsHtml(st);
   } catch(e){
     content.innerHTML = `<div class="note-text" style="padding:10px 0;">${escapeAttr(e.message || 'Не удалось загрузить статистику')}</div>`;
   }
@@ -2012,6 +2132,37 @@ function closeOwnStatsSheet(){
 function shortDate(iso){
   const [y, m, d] = iso.split('-');
   return d + '.' + m;
+}
+function viewsChartHtml(st){
+  const max = Math.max(1, ...st.daily.map(d => d.views));
+  const bars = st.daily.map(d => `<div class="${d.views ? '' : 'zero'}" style="height:${Math.max(3, Math.round(d.views / max * 100))}%;" title="${shortDate(d.date)}: ${d.views}"></div>`).join('');
+  const first = st.daily[0], last = st.daily[st.daily.length - 1];
+  return `<div class="mini-chart">${bars}</div>
+    <div class="mini-chart-legend"><span>${shortDate(first.date)}</span><span>${shortDate(last.date)}</span></div>`;
+}
+// Без PRO и буста — только просмотры, остальное показываем как закрытое
+function ownStatsLimitedHtml(st, id){
+  return `
+    <div class="note-text" style="margin-bottom:12px;">За последние ${st.periodDays} дней</div>
+    <div class="stat-tiles">
+      <div class="stat-tile"><div class="stat-tile-num">${st.views.period}</div><div class="stat-tile-label">Просмотров анкеты</div></div>
+      <div class="stat-tile"><div class="stat-tile-num">${st.uniqueViewers.period}</div><div class="stat-tile-label">Разных людей смотрели</div></div>
+    </div>
+    <div class="block-title">ПРОСМОТРЫ ПО ДНЯМ</div>
+    ${viewsChartHtml(st)}
+    <div class="block-title">ЗА ВСЁ ВРЕМЯ</div>
+    <div class="kv-row"><span>Просмотров</span><b>${st.views.total}</b></div>
+    <div class="kv-row"><span>Разных людей</span><b>${st.uniqueViewers.total}</b></div>
+    <div class="stat-tile" style="margin-top:18px;">
+      <div style="font-weight:800; font-size:14px;">🔒 Полная статистика — с PRO или бустом</div>
+      <div class="note-text" style="margin-top:6px;">Сколько людей связались с вами и как (Telegram, телефон, Instagram, сайт), откуда смотрят анкету, сколько раз ею поделились и добавили в избранное.</div>
+      <div class="cabinet-actions">
+        <button class="subcat-chip" onclick="closeOwnStatsSheet(); openMoneySheet(${id}, 'pro')">Оформить PRO</button>
+        <button class="subcat-chip" onclick="closeOwnStatsSheet(); openMoneySheet(${id}, 'boost')">Забустить</button>
+      </div>
+    </div>
+    <div class="note-text" style="margin-top:14px;">Повторные просмотры одного человека в течение 30 минут считаются одним. Ваши собственные просмотры не учитываются.</div>
+  `;
 }
 function ownStatsHtml(st){
   const max = Math.max(1, ...st.daily.map(d => d.views));
@@ -2067,20 +2218,18 @@ function renderMoneySheet(){
       <div class="benefit-row"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${CHECK}</svg>Бейдж «PRO» у имени</div>
       <div class="benefit-row"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${CHECK}</svg>Размещение в неограниченном числе подкатегорий</div>
       <div class="benefit-row"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${CHECK}</svg>Приоритет при модерации</div>
-      <div class="benefit-row"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${CHECK}</svg>Статистика просмотров анкеты</div>
+      <div class="benefit-row"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${CHECK}</svg>Полная статистика анкеты: контакты, источники, избранное</div>
       <div class="price-row"><span>Ежемесячно</span><span>${PRO_PRICE} ⭐</span></div>
       <button class="btn-full" onclick="confirmPro()">Оформить за ${PRO_PRICE} Stars</button>
-      <div class="note-text" style="margin-top:10px;">Демо-оплата — реальное списание Stars подключим вместе с настоящим бэкендом.</div>
     `;
   } else {
     content.innerHTML = `
-      <div class="note-text" style="margin-bottom:14px;">Поднимает анкету в топ подкатегории на выбранный срок.</div>
+      <div class="note-text" style="margin-bottom:14px;">Поднимает анкету в топ подкатегории на выбранный срок. Пока буст активен, открыта и полная статистика анкеты.</div>
       <div class="duration-row">
         <div class="duration-option ${selectedBoostDays === 7 ? 'active' : ''}" onclick="selectBoostDays(7)"><div class="d-label">7 дней</div><div class="d-price">${BOOST_PRICES[7]} ⭐</div></div>
         <div class="duration-option ${selectedBoostDays === 30 ? 'active' : ''}" onclick="selectBoostDays(30)"><div class="d-label">30 дней</div><div class="d-price">${BOOST_PRICES[30]} ⭐</div></div>
       </div>
       <button class="btn-full" onclick="confirmBoost()">Забустить за ${BOOST_PRICES[selectedBoostDays]} Stars</button>
-      <div class="note-text" style="margin-top:10px;">Демо-оплата — реальное списание Stars подключим вместе с настоящим бэкендом.</div>
     `;
   }
 }
@@ -2155,7 +2304,7 @@ async function confirmBoost(){
   }
 
   const scroll = document.querySelector('.cat-scroll');
-  if(scroll) scroll.innerHTML = '<div style="padding:20px; color:var(--muted); font-size:13px;">Загрузка данных с сервера…</div>';
+  if(scroll) scroll.innerHTML = LOADER_HTML;
   // Запрос "приложение открыто" идёт параллельно с загрузкой каталога, но до
   // избранного: так сервер первым делом узнаёт, по какой ссылке пришёл новичок.
   const openPromise = trackAppOpen();
