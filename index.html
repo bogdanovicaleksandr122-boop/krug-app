@@ -1496,9 +1496,24 @@ function canShareCard(){
   return !!(tg && tgInitData && typeof tg.shareMessage === 'function'
     && tg.isVersionAtLeast && tg.isVersionAtLeast('8.0'));
 }
+// Почему карточка не отправилась — пишем в журнал сервера (видно в логах Railway),
+// чтобы такие случаи можно было разобрать
+function reportShareProblem(specId, reason){
+  if(!tgInitData || !specId) return;
+  apiRequest(`/api/specialists/${specId}/share-failed`, {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({reason: String(reason || 'unknown').slice(0, 200), platform: tg && tg.platform, version: tg && tg.version})
+  }).catch(() => {});
+}
 if(tg && typeof tg.onEvent === 'function'){
-  // Telegram не смог отправить карточку — предлагаем обычную ссылку.
-  tg.onEvent('shareMessageFailed', () => { if(lastSharedSpec) shareSpecialistAsLink(lastSharedSpec); });
+  // Telegram не смог отправить карточку. Если человек сам закрыл выбор чата —
+  // ничего не делаем; если это ошибка — предлагаем поделиться обычной ссылкой.
+  tg.onEvent('shareMessageFailed', (event) => {
+    const error = event && event.error;
+    if(error === 'USER_DECLINED' || !lastSharedSpec) return;
+    reportShareProblem(lastSharedSpec.id, 'telegram:' + error);
+    shareSpecialistAsLink(lastSharedSpec);
+  });
 }
 async function shareSpecialist(){
   const spec = ALL_SPECIALISTS[currentProfileId];
@@ -1507,16 +1522,24 @@ async function shareSpecialist(){
   if(canShareCard()){
     shareInProgress = true;
     showSpinnerToast();
+    let prepared = null;
     try {
-      const prepared = await apiRequest(`/api/specialists/${spec.id}/share-prepare`, {method: 'POST'});
-      lastSharedSpec = spec;
-      tg.shareMessage(prepared.id, (sent) => { if(sent) showToast('Анкета отправлена'); });
-      return;
+      prepared = await apiRequest(`/api/specialists/${spec.id}/share-prepare`, {method: 'POST'});
     } catch(e){
-      console.warn('Карточка не подготовилась, делимся ссылкой', e);
-    } finally {
-      shareInProgress = false;
+      reportShareProblem(spec.id, 'prepare:' + (e && e.message));
     }
+    shareInProgress = false;
+    if(prepared && prepared.id){
+      try {
+        lastSharedSpec = spec;
+        hideToast();
+        tg.shareMessage(prepared.id, (sent) => { if(sent) showToast('Анкета отправлена'); });
+        return;
+      } catch(e){
+        reportShareProblem(spec.id, 'open:' + (e && e.message));
+      }
+    }
+    hideToast();
   }
   shareSpecialistAsLink(spec);
 }
@@ -2421,6 +2444,10 @@ function showSpinnerToast(){
   t.classList.add('show');
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => t.classList.remove('show'), 8000);
+}
+function hideToast(){
+  clearTimeout(toastTimer);
+  document.getElementById('toast').classList.remove('show');
 }
 function showToast(msg){
   const t = document.getElementById('toast');
