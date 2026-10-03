@@ -461,9 +461,9 @@ body{ background:var(--backdrop); }
       <div class="csv-help">
         Загрузите CSV со специалистами. Если указанные страна/город/категория/подкатегория ещё не существуют — они будут созданы автоматически, анкета привяжется к ним.<br><br>
         Обязательные колонки в заголовке: <code>country, city, category, subcategory, name, role</code>.<br>
-        Необязательные: <code>category_icon, about, services, contactsTelegram, contactsInstagram, contactsPhone, contactsWebsite, locationAddress, status, verified, pro, boosted</code>.<br><br>
+        Необязательные: <code>category_icon, about, services, contactsTelegram, contactsInstagram, contactsPhone, contactsWebsite, locationAddress, status, verified, pro, boosted, online</code>.<br><br>
         В колонке <code>services</code> перечисляйте услуги через вертикальную черту: <code>Маникюр|Педикюр</code>.<br>
-        В <code>verified</code>/<code>pro</code>/<code>boosted</code> пишите <code>да</code> или <code>нет</code>. Если не указать <code>status</code> — анкета сразу публикуется.
+        В <code>verified</code>/<code>pro</code>/<code>boosted</code>/<code>online</code> (работает онлайн по всей стране) пишите <code>да</code> или <code>нет</code>. Если не указать <code>status</code> — анкета сразу публикуется.
       </div>
       <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px;">
         <button class="btn-small ghost" onclick="downloadCsvTemplate()">Скачать пример CSV</button>
@@ -642,6 +642,10 @@ function mapApiSpecialist(s){
     location: s.locationAddress ? {address: s.locationAddress} : null,
     catId: s.categoryId, subcatId: s.subcategoryId, cityId: s.cityId,
     verified: !!s.verified,
+    pro: !!s.pro,
+    status: s.status,
+    worksOnline: !!s.worksOnline,
+    extraSubcategories: Array.isArray(s.extraSubcategories) ? s.extraSubcategories : [],
     telegramUserId: s.telegramUserId || null,
     pendingChanges: s.pendingChanges || null,
     photoFileId: s.photoFileId || null,
@@ -801,7 +805,15 @@ const FIELD_LABELS = {
   name: 'Имя', about: 'О себе', services: 'Услуги',
   contactsTelegram: 'Telegram', contactsInstagram: 'Instagram', contactsPhone: 'Телефон', contactsWebsite: 'Сайт',
   locationAddress: 'Адрес', cityId: 'Город', photoFileId: 'Фото',
+  worksOnline: 'Онлайн по стране', extraSubcategories: 'Доп. подкатегории (PRO)',
 };
+function subcatLabelById(id){
+  for(const c of catalogCategories){
+    const sc = (c.subcategories || []).find(x => x.id === id);
+    if(sc) return sc.label;
+  }
+  return id;
+}
 function oldDiffValue(s, key){
   if(key === 'services') return (s.services||[]).join(', ') || '—';
   if(key === 'name') return s.name || '—';
@@ -813,6 +825,8 @@ function oldDiffValue(s, key){
   if(key === 'locationAddress') return s.location ? s.location.address : '—';
   if(key === 'cityId'){ const c = catalogCities.find(x => x.id === s.cityId); return c ? c.label : (s.cityId || '—'); }
   if(key === 'photoFileId') return s.photoFileId ? '(текущее фото)' : '—';
+  if(key === 'worksOnline') return s.worksOnline ? 'да' : 'нет';
+  if(key === 'extraSubcategories') return s.extraSubcategories.map(subcatLabelById).join(', ') || '—';
   return '—';
 }
 function newDiffValue(pc, key){
@@ -820,6 +834,8 @@ function newDiffValue(pc, key){
   if(key === 'services') return (v||[]).join(', ') || '—';
   if(key === 'cityId'){ const c = catalogCities.find(x => x.id === v); return c ? c.label : (v || '—'); }
   if(key === 'photoFileId') return v ? '(новое фото, см. превью ниже)' : '—';
+  if(key === 'worksOnline') return v ? 'да' : 'нет';
+  if(key === 'extraSubcategories') return (v || []).map(subcatLabelById).join(', ') || '—';
   return v || '—';
 }
 function pendingChangesHtml(s){
@@ -844,12 +860,17 @@ function adminCardHtml(s){
   const sub = cat ? (cat.subcategories||[]).find(x => x.id === s.subcatId) : null;
   const contactsList = CONTACT_ORDER.filter(t => s.contacts[t]).map(t => `${CONTACT_LABELS[t]}: ${escapeAttr(s.contacts[t])}`).join(' · ') || '—';
   const city = catalogCities.find(c => c.id === s.cityId);
+  // Фото, приложенное к новой анкете при подаче (публично его пока не видно)
+  const newPhoto = !s.pendingChanges && s.status !== 'published' && s.photoFileId ? `
+    <img data-pending-photo="${s.id}" style="width:90px; height:90px; object-fit:cover; border-radius:50%; display:block; margin-bottom:10px;" alt="Фото анкеты">` : '';
   return `
   <div class="spec-card">
+    ${s.pro ? `<div class="mini-badge on" style="margin-bottom:8px;">PRO — проверить в первую очередь</div>` : ''}
+    ${newPhoto}
     ${pendingChangesHtml(s)}
     <div class="admin-detail-row"><span>Категория</span><span>${cat ? escapeAttr(cat.label) : escapeAttr(s.catId)} → ${sub ? escapeAttr(sub.label) : escapeAttr(s.subcatId)}</span></div>
     <div class="admin-detail-row"><span>Имя</span><span>${escapeAttr(s.name)}</span></div>
-    <div class="admin-detail-row"><span>Город</span><span>${city ? escapeAttr(city.label) : '—'}</span></div>
+    <div class="admin-detail-row"><span>Город</span><span>${city ? escapeAttr(city.label) : '—'}${s.worksOnline ? ' · онлайн по стране' : ''}</span></div>
     <div class="admin-detail-row"><span>Услуги</span><span>${escapeAttr(s.services.join(', ')) || '—'}</span></div>
     <div class="admin-detail-row"><span>Контакты</span><span>${contactsList}</span></div>
     <div class="admin-detail-row"><span>Адрес</span><span>${s.location ? escapeAttr(s.location.address) : 'Без адреса'}</span></div>
@@ -1028,7 +1049,13 @@ function editFormHtml(s){
       <option value="published" ${(!s.status||s.status==='published')?'selected':''}>Опубликовано</option>
       <option value="rejected" ${s.status==='rejected'?'selected':''}>Отклонено</option>
     </select>
-    <div class="toggle-row"><input type="checkbox" id="ef-verified" ${s.verified?'checked':''}> <label for="ef-verified">Подтверждено специалистом</label></div>
+    <div class="toggle-row"><input type="checkbox" id="ef-online" ${s.worksOnline?'checked':''}> <label for="ef-online">Онлайн / по всей стране (видна во всех городах страны)</label></div>
+    <div class="field-label">ДОП. ПОДКАТЕГОРИИ (действуют только с PRO)</div>
+    <select class="field-input" id="ef-extra" multiple style="min-height:110px;">
+      ${catalogCategories.map(c => `<optgroup label="${escapeAttr(c.label)}">${(c.subcategories||[]).map(sc => `<option value="${sc.id}" ${(s.extraSubcategories||[]).includes(sc.id)?'selected':''}>${escapeAttr(sc.label)}</option>`).join('')}</optgroup>`).join('')}
+    </select>
+    <div class="csv-help" style="margin:-4px 0 12px;">Чтобы выбрать несколько — удерживайте Ctrl (на телефоне просто отмечайте).</div>
+    <div class="toggle-row"><input type="checkbox" id="ef-verified" ${s.verified?'checked':''}> <label for="ef-verified">Анкету ведёт специалист (владелец подтверждён)</label></div>
     <div class="toggle-row"><input type="checkbox" id="ef-pro" ${s.pro?'checked':''}> <label for="ef-pro">PRO</label></div>
     <div class="toggle-row"><input type="checkbox" id="ef-boosted" ${s.boosted?'checked':''}> <label for="ef-boosted">Буст</label></div>
     <div class="field-label">TELEGRAM ID ВЛАДЕЛЬЦА</div>
@@ -1093,6 +1120,8 @@ async function saveEditForm(){
     verified: document.getElementById('ef-verified').checked,
     pro: document.getElementById('ef-pro').checked,
     boosted: document.getElementById('ef-boosted').checked,
+    worksOnline: document.getElementById('ef-online').checked,
+    extraSubcategories: Array.from(document.getElementById('ef-extra').selectedOptions).map(o => o.value),
     telegramUserId: document.getElementById('ef-owner-id').value.trim() || null,
   };
   if(!payload.name || !payload.role || !payload.categoryId || !payload.subcategoryId){
@@ -1176,8 +1205,8 @@ async function sendBroadcast(){
 
 /* ---------- импорт CSV ---------- */
 function downloadCsvTemplate(){
-  const header = 'country,city,category,category_icon,subcategory,name,role,about,services,contactsTelegram,contactsInstagram,contactsPhone,contactsWebsite,locationAddress,status,verified,pro,boosted';
-  const example = 'Bulgaria,София,Красота и уход,sparkle,Маникюр/педикюр,Мария И.,Маникюр/педикюр,Работаю на дому,Классический маникюр|Покрытие гель-лаком,@maria_nails,,+359881112233,,ул. Витоша 1,published,да,нет,нет';
+  const header = 'country,city,category,category_icon,subcategory,name,role,about,services,contactsTelegram,contactsInstagram,contactsPhone,contactsWebsite,locationAddress,status,verified,pro,boosted,online';
+  const example = 'Bulgaria,София,Красота и уход,sparkle,Маникюр/педикюр,Мария И.,Маникюр/педикюр,Работаю на дому,Классический маникюр|Покрытие гель-лаком,@maria_nails,,+359881112233,,ул. Витоша 1,published,да,нет,нет,нет';
   const blob = new Blob(['\ufeff' + header + '\n' + example + '\n'], {type:'text/csv;charset=utf-8;'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -1355,7 +1384,7 @@ function renderUsersTable(users){
 
 /* ---------- подробная статистика ---------- */
 const SOURCE_LABELS = {direct:'Сам открыл бота', ref:'Рекламная ссылка', share:'Ему поделились анкетой', unknown:'Неизвестно (до запуска статистики)'};
-const VIEW_SOURCE_LABELS = {catalog:'Каталог', search:'Поиск', favorites:'Избранное', share:'Ссылка «поделиться»', ref:'Реклама', cabinet:'Личный кабинет', other:'Другое', unknown:'Другое'};
+const VIEW_SOURCE_LABELS = {catalog:'Каталог', search:'Поиск', favorites:'Избранное', share:'Ссылка «поделиться»', ref:'Реклама', home:'Главная', cabinet:'Личный кабинет', other:'Другое', unknown:'Другое'};
 const CONTACT_LABELS_STATS = {telegram:'Telegram', phone:'Телефон', instagram:'Instagram', website:'Сайт', map:'Адрес на карте'};
 const PLATFORM_LABELS = {ios:'iPhone / iPad', android:'Android', tdesktop:'Telegram Desktop', macos:'Mac', weba:'Web', webk:'Web', web:'Web', unknown:'Неизвестно'};
 const LANGUAGE_LABELS = {ru:'Русский', uk:'Украинский', be:'Белорусский', bg:'Болгарский', pl:'Польский', en:'Английский', kk:'Казахский', unknown:'Не указан'};

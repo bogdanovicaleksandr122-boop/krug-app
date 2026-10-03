@@ -3,11 +3,19 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>КРУГ — прототип</title>
+<title>КРУГ</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@700;800;900&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script>
+  // Тема выставляется до отрисовки страницы, чтобы не было белой вспышки в тёмной теме
+  try {
+    var twa = window.Telegram && window.Telegram.WebApp;
+    var dark = twa && twa.colorScheme ? twa.colorScheme === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+    document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+  } catch(e) {}
+</script>
 <style>
 :root{
   --ink:#0a0a0a;
@@ -23,6 +31,34 @@
   --font-body:'Manrope', -apple-system, sans-serif;
   --ease:cubic-bezier(.16,1,.3,1);
   --ease-soft:cubic-bezier(.22,.68,0,1);
+  --ink-soft:#3a3a37;
+  --danger:#c0392b;
+  --stripe-a:#f2f2ef;
+  --stripe-b:#ebebe8;
+  --focus-ring:rgba(10,10,10,.08);
+  --paper-clear:rgba(255,255,255,0);
+  --overlay:rgba(0,0,0,.4);
+  color-scheme:light;
+}
+/* Тёмная тема — включается, если в Telegram выбрана тёмная тема (или тёмная тема
+   системы, когда приложение открыто в обычном браузере). Чёрное и белое просто
+   меняются местами — стиль остаётся тем же. */
+:root[data-theme="dark"]{
+  --ink:#f2f2ef;
+  --paper:#0f0f0f;
+  --paper-soft:#1b1b1a;
+  --line:#2c2c2a;
+  --muted:#8f8e88;
+  --backdrop:#000000;
+  --shadow:0 18px 40px rgba(0,0,0,.5);
+  --ink-soft:#cfcfca;
+  --danger:#ff6b5b;
+  --stripe-a:#171716;
+  --stripe-b:#1f1f1e;
+  --focus-ring:rgba(255,255,255,.10);
+  --paper-clear:rgba(15,15,15,0);
+  --overlay:rgba(0,0,0,.6);
+  color-scheme:dark;
 }
 *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
 html,body{margin:0; padding:0; height:100%;}
@@ -106,8 +142,37 @@ a:hover{color:var(--muted);}
 }
 
 .search-wrap{display:flex; align-items:center; gap:10px; border:2.5px solid var(--ink); border-radius:999px; padding:15px 19px; margin-bottom:24px; transition:box-shadow .3s var(--ease), transform .2s var(--ease);}
-.search-wrap:focus-within{box-shadow:0 0 0 3px rgba(10,10,10,.08); transform:translateY(-1px);}
-.search-wrap input{border:none; outline:none; flex:1; font-size:14px; font-family:inherit; background:transparent;}
+.search-wrap:focus-within{box-shadow:0 0 0 3px var(--focus-ring); transform:translateY(-1px);}
+.search-wrap input{border:none; outline:none; flex:1; min-width:0; font-size:14px; font-family:inherit; background:transparent; color:var(--ink);}
+.search-wrap input::placeholder{color:var(--muted);}
+.search-wrap input::-webkit-search-cancel-button, .search-wrap input::-webkit-search-decoration{-webkit-appearance:none; appearance:none;}
+.search-go{width:34px; height:34px; margin:-8px -10px -8px 0; border-radius:50%; border:none; background:var(--ink); color:var(--paper); display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; transition:transform .2s var(--ease);}
+.search-go:active{transform:scale(.9);}
+.search-go svg{width:16px; height:16px;}
+.search-box{position:relative; margin-bottom:22px;}
+.search-box .search-wrap{margin-bottom:0;}
+.suggest-list{position:absolute; left:0; right:0; top:calc(100% + 6px); background:var(--paper); border:2px solid var(--ink); border-radius:20px; padding:6px 0; z-index:5; box-shadow:var(--shadow); display:none;}
+.suggest-list.open{display:block; animation:fadeIn .2s var(--ease) both;}
+.suggest-item{display:flex; flex-direction:column; gap:1px; padding:10px 16px; cursor:pointer;}
+.suggest-item:hover, .suggest-item:active{background:var(--paper-soft);}
+.suggest-item b{font-size:13.5px; font-weight:700;}
+.suggest-item span{font-size:11.5px; color:var(--muted);}
+.home-logo{width:58px; height:58px; margin:6px auto 18px; outline-offset:4px;}
+.home-logo span{font-size:11.5px;}
+.city-line{display:flex; justify-content:center; margin:-8px 0 20px;}
+.city-line button{display:inline-flex; align-items:center; gap:6px; border:none; background:none; font-family:inherit; font-size:13px; font-weight:800; color:var(--ink); cursor:pointer; padding:6px 10px; border-radius:999px; transition:background .2s ease;}
+.city-line button:active{background:var(--paper-soft);}
+.city-line svg{width:15px; height:15px;}
+.city-line .chev{width:12px; height:12px;}
+.cat-grid{display:grid; grid-template-columns:repeat(4, 1fr); gap:16px 6px; margin-bottom:8px;}
+.cat-grid .cat-chip{width:auto;}
+.home-section{margin-top:26px;}
+.people-scroll{display:flex; gap:14px; overflow-x:auto; margin:0 -20px; padding:0 20px 4px; scroll-padding:0 20px; scroll-snap-type:x proximity;}
+.person-chip{flex:0 0 auto; width:76px; display:flex; flex-direction:column; align-items:center; gap:6px; cursor:pointer; border:none; background:none; font-family:inherit; color:inherit; padding:0; scroll-snap-align:start;}
+.person-chip .avatar{width:64px; height:64px; position:relative;}
+.person-chip .avatar.boosted{border-color:var(--ink);}
+.person-name{font-size:11px; font-weight:800; line-height:1.2; text-align:center; max-width:76px; overflow:hidden; text-overflow:ellipsis; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;}
+.person-role{font-size:10px; color:var(--muted); text-align:center; max-width:76px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:-3px;}
 .search-wrap svg{width:17px; height:17px; flex-shrink:0;}
 
 .section-label{font-size:11px; font-weight:800; letter-spacing:.08em; color:var(--muted); margin:0 0 12px;}
@@ -121,10 +186,6 @@ a:hover{color:var(--muted);}
 .cat-chip.active .cat-circle{background:var(--ink); color:var(--paper); transform:scale(1.04);}
 .cat-chip:active .cat-circle{transform:scale(.92);}
 
-.subcat-panel{max-height:0; overflow:hidden; transition:max-height .38s var(--ease);}
-.subcat-panel.open{max-height:420px;}
-.subcat-inner{padding-top:18px; animation:fadeIn .4s var(--ease) .05s both;}
-.subcat-panel-title{font-family:var(--font-display); font-weight:700; font-size:14px; margin-bottom:12px;}
 .subcat-chips{display:flex; flex-wrap:wrap; gap:8px;}
 .subcat-chip{border:1.5px solid var(--line); border-radius:999px; padding:9px 14px; font-size:12.5px; font-weight:700; cursor:pointer; background:var(--paper); font-family:inherit; transition:border-color .2s ease, transform .2s var(--ease), background .2s ease;}
 .subcat-chip:hover{border-color:var(--ink); transform:translateY(-1px);}
@@ -143,6 +204,31 @@ a:hover{color:var(--muted);}
 .spec-card-top{display:flex; align-items:center; gap:12px; cursor:pointer;}
 .avatar{width:58px; height:58px; border-radius:50%; flex-shrink:0; background:var(--paper-soft); border:2px solid var(--line); display:flex; align-items:center; justify-content:center;}
 .avatar svg{width:30px; height:30px;}
+.initials{font-family:var(--font-display); font-weight:800; font-size:18px; letter-spacing:.02em; color:var(--ink); line-height:1; user-select:none;}
+.profile-avatar .initials{font-size:36px;}
+.card-meta{font-size:11px; color:var(--muted); margin-top:4px; font-weight:700;}
+.contact-icon-mini{cursor:pointer; background:var(--paper); padding:0; font-family:inherit; transition:border-color .2s ease, color .2s ease, transform .2s var(--ease);}
+.contact-icon-mini:active{transform:scale(.88); border-color:var(--ink); color:var(--ink);}
+.rec-row{display:flex; align-items:center; justify-content:center; gap:10px; margin:-6px 0 20px; flex-wrap:wrap;}
+.rec-btn{display:inline-flex; align-items:center; gap:6px; border:2px solid var(--ink); background:var(--paper); color:var(--ink); border-radius:999px; padding:8px 14px; font-family:inherit; font-size:12.5px; font-weight:800; cursor:pointer; transition:background .2s ease, color .2s ease, transform .2s var(--ease);}
+.rec-btn.active{background:var(--ink); color:var(--paper);}
+.rec-btn:active{transform:scale(.95);}
+.rec-btn svg{width:15px; height:15px;}
+.rec-count{font-size:12px; color:var(--muted); font-weight:700;}
+.choice-card{border:2.2px solid var(--line); border-radius:var(--radius-md); padding:18px; margin-bottom:12px; cursor:pointer; transition:border-color .2s ease, background .2s ease, transform .2s var(--ease);}
+.choice-card:active{transform:scale(.98);}
+.choice-card.active{border-color:var(--ink); background:var(--paper-soft);}
+.choice-title{font-weight:800; font-size:15px; margin-bottom:4px;}
+.photo-pick{display:flex; align-items:center; gap:14px;}
+.photo-pick .avatar{width:64px; height:64px;}
+.photo-pick label{border:2px solid var(--ink); border-radius:999px; padding:10px 16px; font-size:12.5px; font-weight:800; cursor:pointer;}
+.photo-pick input{display:none;}
+.draft-note{display:flex; justify-content:space-between; align-items:center; gap:10px; background:var(--paper-soft); border-radius:16px; padding:10px 14px; font-size:12px; color:var(--muted); margin-bottom:6px;}
+.draft-note button{border:none; background:none; font-family:inherit; font-weight:800; font-size:12px; color:var(--ink); text-decoration:underline; cursor:pointer; padding:0;}
+.chip-list{display:flex; flex-wrap:wrap; gap:8px; margin-bottom:6px;}
+.chip-removable{display:inline-flex; align-items:center; gap:6px; border:1.5px solid var(--ink); border-radius:999px; padding:7px 8px 7px 13px; font-size:12px; font-weight:700;}
+.chip-removable button{width:20px; height:20px; border-radius:50%; border:none; background:var(--paper-soft); color:var(--ink); display:flex; align-items:center; justify-content:center; cursor:pointer; padding:0;}
+.chip-removable svg{width:11px; height:11px;}
 .spec-info{flex:1; min-width:0;}
 .spec-name-row{display:flex; align-items:center; gap:6px; flex-wrap:wrap;}
 .spec-name{font-weight:800; font-size:14.5px;}
@@ -174,7 +260,7 @@ a:hover{color:var(--muted);}
 .profile-role{text-align:center; color:var(--muted); font-size:13.5px; margin-bottom:22px;}
 .block-title{font-weight:800; font-size:12px; letter-spacing:.06em; color:var(--muted); margin:22px 0 8px;}
 .block-title:first-of-type{margin-top:0;}
-.about-text{font-size:13.5px; line-height:1.55; color:#3a3a37;}
+.about-text{font-size:13.5px; line-height:1.55; color:var(--ink-soft);}
 .service-row{display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid var(--line); font-size:13.5px;}
 .service-row svg{width:16px; height:16px; flex-shrink:0;}
 
@@ -208,7 +294,7 @@ a:hover{color:var(--muted);}
 .report-link{display:block; margin:8px auto 0; font-size:12px; color:var(--muted); text-decoration:underline; text-underline-offset:2px; cursor:pointer; background:none; border:none; font-family:inherit; padding:4px;}
 .report-link:hover{color:var(--ink);}
 
-.map-preview{height:56px; border-radius:var(--radius-md); background-image:repeating-linear-gradient(45deg,#f2f2ef,#f2f2ef 10px,#ebebe8 10px,#ebebe8 20px); border:1.5px solid var(--line); display:flex; align-items:center; justify-content:center; cursor:pointer; margin-bottom:8px; color:var(--ink); transition:border-color .2s ease, transform .2s var(--ease);}
+.map-preview{height:56px; border-radius:var(--radius-md); background-image:repeating-linear-gradient(45deg,var(--stripe-a),var(--stripe-a) 10px,var(--stripe-b) 10px,var(--stripe-b) 20px); border:1.5px solid var(--line); display:flex; align-items:center; justify-content:center; cursor:pointer; margin-bottom:8px; color:var(--ink); transition:border-color .2s ease, transform .2s var(--ease);}
 .map-preview:hover{border-color:var(--ink); transform:translateY(-1px);}
 .map-preview svg{width:20px; height:20px;}
 .location-address{font-size:12.5px; color:var(--muted);}
@@ -257,19 +343,19 @@ a:hover{color:var(--muted);}
 .duration-option .d-price{font-size:11.5px; color:var(--muted); margin-top:2px;}
 
 .cta-space{height:76px;}
-.sticky-cta{position:absolute; left:0; right:0; bottom:0; padding:14px 20px calc(14px + env(safe-area-inset-bottom)); background:linear-gradient(to top, var(--paper) 70%, rgba(255,255,255,0)); animation:fadeIn .4s var(--ease) both;}
+.sticky-cta{position:absolute; left:0; right:0; bottom:0; padding:14px 20px calc(14px + env(safe-area-inset-bottom)); background:linear-gradient(to top, var(--paper) 70%, var(--paper-clear)); animation:fadeIn .4s var(--ease) both;}
 .btn-full{width:100%; background:var(--ink); color:var(--paper); border:none; border-radius:999px; padding:18px; font-size:14px; font-weight:700; font-family:var(--font-body); cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; transition:transform .2s var(--ease), opacity .2s ease;}
 .btn-full:hover{opacity:.88;}
 .btn-full:active{transform:scale(.97);}
 .btn-full svg{width:16px; height:16px;}
 
-.overlay{position:absolute; inset:0; background:rgba(0,0,0,.4); backdrop-filter:blur(2px); opacity:0; pointer-events:none; transition:opacity .3s var(--ease); z-index:20;}
+.overlay{position:absolute; inset:0; background:var(--overlay); backdrop-filter:blur(2px); opacity:0; pointer-events:none; transition:opacity .3s var(--ease); z-index:20;}
 .overlay.open{opacity:1; pointer-events:auto;}
 .side-menu{position:absolute; top:0; bottom:0; left:0; width:76%; max-width:280px; background:var(--paper); z-index:21; padding:22px 20px; transform:translateX(-100%); transition:transform .38s var(--ease-soft); display:flex; flex-direction:column; gap:2px;}
 .side-menu.open{transform:translateX(0);}
 .side-menu .logo-badge{margin:4px 0 22px;}
 .menu-item{display:flex; align-items:center; gap:16px; padding:15px 4px; border-bottom:1px solid var(--line); font-weight:700; font-size:14.5px; cursor:pointer; transition:padding-left .2s var(--ease), color .2s ease;}
-.menu-item:hover{padding-left:8px; color:#000;}
+.menu-item:hover{padding-left:8px;}
 .menu-item svg{width:21px; height:21px; stroke-width:2.2; flex-shrink:0;}
 
 .sheet{position:absolute; left:0; right:0; bottom:0; max-height:72%; background:var(--paper); z-index:22; border-radius:24px 24px 0 0; padding:18px 20px calc(18px + env(safe-area-inset-bottom)); transform:translateY(100%); transition:transform .4s var(--ease-soft); overflow-y:auto;}
@@ -294,7 +380,7 @@ a:hover{color:var(--muted);}
 .field-label{font-weight:800; font-size:11.5px; letter-spacing:.05em; color:var(--muted); margin:22px 0 8px;}
 .field-label:first-of-type{margin-top:4px;}
 .field-input{width:100%; border:2.2px solid var(--line); border-radius:16px; padding:14px 16px; font-size:14px; font-family:inherit; outline:none; background:var(--paper); color:var(--ink); transition:border-color .2s ease, box-shadow .2s ease;}
-.field-input:focus{border-color:var(--ink); box-shadow:0 0 0 3px rgba(10,10,10,.06);}
+.field-input:focus{border-color:var(--ink); box-shadow:0 0 0 3px var(--focus-ring);}
 textarea.field-input{resize:vertical; min-height:80px; line-height:1.4;}
 .chip-toggle-row{display:flex; gap:8px; flex-wrap:wrap;}
 .chip-toggle{border:2.2px solid var(--line); border-radius:999px; padding:11px 18px; font-size:13px; font-weight:700; cursor:pointer; background:var(--paper); font-family:inherit; transition:background .2s var(--ease), color .2s var(--ease), border-color .2s ease, transform .2s var(--ease);}
@@ -307,6 +393,7 @@ textarea.field-input{resize:vertical; min-height:80px; line-height:1.4;}
 .remove-btn svg{width:14px; height:14px;}
 .add-link-btn{font-weight:700; font-size:13px; color:var(--ink); background:none; border:none; padding:8px 0; cursor:pointer; display:flex; align-items:center; gap:6px; font-family:inherit; transition:gap .2s var(--ease), opacity .2s ease;}
 .add-link-btn:hover{gap:10px; opacity:.75;}
+.add-link-btn svg{width:16px; height:16px; flex-shrink:0;}
 .toggle-row{display:flex; align-items:center; justify-content:space-between; gap:14px; padding:6px 0 16px;}
 .toggle-switch{width:52px; height:30px; border-radius:999px; background:var(--line); position:relative; cursor:pointer; flex-shrink:0; transition:background .25s var(--ease);}
 .toggle-switch.on{background:var(--ink);}
@@ -341,7 +428,7 @@ textarea.field-input{resize:vertical; min-height:80px; line-height:1.4;}
 @keyframes spin{to{transform:rotate(360deg);}}
 .loader{display:flex; justify-content:center; align-items:center; padding:32px 0; width:100%;}
 .spinner{width:26px; height:26px; border:2.5px solid var(--line); border-top-color:var(--ink); border-radius:50%; animation:spin .8s linear infinite; flex-shrink:0;}
-.toast .spinner{width:16px; height:16px; border-width:2px; border-color:rgba(255,255,255,.3); border-top-color:#fff; display:inline-block; vertical-align:middle;}
+.toast .spinner{width:16px; height:16px; border-width:2px; border-color:var(--muted); border-top-color:var(--paper); display:inline-block; vertical-align:middle;}
 
 </style>
 </head>
@@ -361,26 +448,35 @@ textarea.field-input{resize:vertical; min-height:80px; line-height:1.4;}
       </div>
     </div>
 
-    <div class="logo-badge"><span>КРУГ</span></div>
+    <div class="logo-badge home-logo"><span>КРУГ</span></div>
     <div class="headline">УСЛУГИ ДЛЯ СВОИХ.<br>ЗА ГРАНИЦЕЙ.</div>
+    <div class="city-line">
+      <button onclick="openCityModal()" aria-label="Сменить город">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+        <span id="city-line-label">—</span>
+        <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+    </div>
 
-    <div class="search-wrap">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-      <input type="text" id="home-search-input" placeholder="Поиск услуг (например, «врач», «ремонт»)" onkeydown="if(event.key === 'Enter'){ performSearch(this.value); }">
+    <div class="search-box">
+      <form class="search-wrap" onsubmit="event.preventDefault(); submitHomeSearch();">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="search" id="home-search-input" enterkeyhint="search" autocomplete="off" placeholder="Кого ищете? Например, «стоматолог»" oninput="renderSuggestions(this.value)" onfocus="renderSuggestions(this.value)" onblur="setTimeout(hideSuggestions, 150)">
+        <button type="submit" class="search-go" aria-label="Искать"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="13 6 19 12 13 18"/></svg></button>
+      </form>
+      <div class="suggest-list" id="suggest-list"></div>
     </div>
 
     <div class="section-label">КАТЕГОРИИ</div>
-    <div class="cat-scroll" id="cat-scroll"></div>
+    <div class="cat-grid" id="cat-scroll"></div>
 
-    <div class="subcat-panel" id="subcat-panel">
-      <div class="subcat-inner" id="subcat-inner"></div>
-    </div>
+    <div id="home-sections"></div>
   </div>
 
   <!-- ================= LIST ================= -->
   <div class="screen" id="screen-list">
     <div class="topbar">
-      <div class="iconbtn" onclick="goHome()">
+      <div class="iconbtn" onclick="goBack()" aria-label="Назад">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
       </div>
       <div class="iconbtn" onclick="openMenu()">
@@ -394,7 +490,7 @@ textarea.field-input{resize:vertical; min-height:80px; line-height:1.4;}
   <!-- ================= FAVORITES ================= -->
   <div class="screen" id="screen-favorites">
     <div class="topbar">
-      <div class="iconbtn" onclick="goHome()">
+      <div class="iconbtn" onclick="goBack()" aria-label="Назад">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
       </div>
       <div class="iconbtn" onclick="openMenu()">
@@ -408,7 +504,7 @@ textarea.field-input{resize:vertical; min-height:80px; line-height:1.4;}
   <!-- ================= ADD SPECIALIST ================= -->
   <div class="screen" id="screen-add">
     <div class="topbar">
-      <div class="iconbtn" onclick="backAddStep()">
+      <div class="iconbtn" onclick="goBack()" aria-label="Назад">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
       </div>
       <div class="step-label" id="add-step-label">ШАГ 1 ИЗ 5</div>
@@ -424,7 +520,7 @@ textarea.field-input{resize:vertical; min-height:80px; line-height:1.4;}
   <!-- ================= MY SERVICES (CABINET) ================= -->
   <div class="screen" id="screen-cabinet">
     <div class="topbar">
-      <div class="iconbtn" onclick="goHome()">
+      <div class="iconbtn" onclick="goBack()" aria-label="Назад">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
       </div>
       <div class="iconbtn" onclick="openMenu()">
@@ -438,7 +534,7 @@ textarea.field-input{resize:vertical; min-height:80px; line-height:1.4;}
   <!-- ================= SUPPORT ================= -->
   <div class="screen" id="screen-support">
     <div class="topbar">
-      <div class="iconbtn" onclick="goHome()">
+      <div class="iconbtn" onclick="goBack()" aria-label="Назад">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
       </div>
       <div class="iconbtn" onclick="openMenu()">
@@ -464,7 +560,7 @@ textarea.field-input{resize:vertical; min-height:80px; line-height:1.4;}
   <!-- ================= SETTINGS ================= -->
   <div class="screen" id="screen-settings">
     <div class="topbar">
-      <div class="iconbtn" onclick="goHome()">
+      <div class="iconbtn" onclick="goBack()" aria-label="Назад">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
       </div>
       <div class="iconbtn" onclick="openMenu()">
@@ -501,7 +597,7 @@ textarea.field-input{resize:vertical; min-height:80px; line-height:1.4;}
   <!-- ================= PROFILE ================= -->
   <div class="screen" id="screen-profile">
     <div class="topbar">
-      <div class="iconbtn" onclick="goBackFromProfile()">
+      <div class="iconbtn" onclick="goBack()" aria-label="Назад">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
       </div>
       <div class="iconbtn" onclick="shareSpecialist()">
@@ -520,10 +616,10 @@ textarea.field-input{resize:vertical; min-height:80px; line-height:1.4;}
     <div class="profile-role" id="p-role">—</div>
     <div id="p-verified"></div>
 
-    <div class="block-title">ОБО МНЕ</div>
+    <div class="block-title" id="p-about-title">ОБО МНЕ</div>
     <div class="about-text" id="p-about">—</div>
 
-    <div class="block-title">УСЛУГИ</div>
+    <div class="block-title" id="p-services-title">УСЛУГИ</div>
     <div id="tab-services"></div>
 
     <div class="block-title">КОНТАКТЫ</div>
@@ -586,6 +682,18 @@ textarea.field-input{resize:vertical; min-height:80px; line-height:1.4;}
     <div id="claim-content"></div>
   </div>
 
+  <!-- ================= ПОХОЖАЯ АНКЕТА УЖЕ ЕСТЬ ================= -->
+  <div class="overlay" id="dupOverlay" onclick="closeDupSheet()"></div>
+  <div class="sheet" id="dupSheet" style="max-height:86%;">
+    <div class="sheet-header">
+      <div class="sheet-title">Похоже, он уже есть</div>
+      <div class="iconbtn" onclick="closeDupSheet()" aria-label="Закрыть">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </div>
+    </div>
+    <div id="dup-content"></div>
+  </div>
+
   <!-- ================= EDIT OWN LISTING SHEET ================= -->
   <div class="overlay" id="editOwnOverlay" onclick="closeEditOwnSheet()"></div>
   <div class="sheet" id="editOwnSheet" style="max-height:86%;">
@@ -644,7 +752,8 @@ const ICONS = {
   globe:'<circle cx="12" cy="12" r="9"/><line x1="3" y1="12" x2="21" y2="12"/><path d="M12 3c2.5 2.6 4 6 4 9s-1.5 6.4-4 9c-2.5-2.6-4-6-4-9s1.5-6.4 4-9z"/>',
   chevronRight:'<polyline points="9 6 15 12 9 18"/>',
   plus:'<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',
-  xmark:'<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>'
+  xmark:'<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>',
+  thumb:'<path d="M7 10v11"/><path d="M15 5.9L14 10h5.8a2 2 0 012 2.3l-1.4 7A2 2 0 0118.5 21H7V10l4.3-7.3A1.6 1.6 0 0114.3 3.6z"/>'
 };
 
 /* ---------- data (загружается с сервера) ---------- */
@@ -726,23 +835,39 @@ let currentListSource = 'catalog';
 function viewSourceFor(returnTo){
   if(returnTo === 'favorites') return 'favorites';
   if(returnTo === 'cabinet') return 'cabinet';
+  if(returnTo === 'home') return 'home';
   if(returnTo === 'list') return currentListSource;
   return 'other';
 }
 
-// Приводим данные специалиста от сервера к тому виду, который ждёт остальной код прототипа
-function avatarHtml(spec){
-  if(!spec.photoFileId) return `<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>`;
-  const v = spec.updatedAt ? '?v=' + encodeURIComponent(spec.updatedAt) : '';
-  return `<img src="${API_BASE}/api/specialists/${spec.id}/photo${v}" alt="" loading="lazy" style="width:100%; height:100%; object-fit:cover; border-radius:50%;" onerror="this.style.display='none'; this.insertAdjacentHTML('afterend', '<svg viewBox=\\'0 0 24 24\\' fill=\\'currentColor\\'><circle cx=\\'12\\' cy=\\'8\\' r=\\'4\\'/><path d=\\'M4 20c0-4.4 3.6-7 8-7s8 2.6 8 7\\'/></svg>')">`;
+// Кружок с фото — или, если фото нет, с первыми буквами имени (вместо безликого силуэта)
+function initialsOf(name){
+  const words = String(name || '').replace(/[«»"'()]/g, ' ').trim().split(/\s+/).filter(w => /[\p{L}\p{N}]/u.test(w));
+  const letters = words.slice(0, 2).map(w => (w.match(/[\p{L}\p{N}]/u) || [''])[0]).join('');
+  return (letters || 'К').toUpperCase();
 }
+function initialsHtml(name){ return `<span class="initials">${escapeAttr(initialsOf(name))}</span>`; }
+// Фото не загрузилось — показываем буквы (имя берём из data-атрибута картинки)
+function avatarFallback(img){
+  const parent = img.parentElement;
+  if(parent) parent.innerHTML = initialsHtml(img.getAttribute('data-name'));
+}
+function photoUrl(spec){
+  const v = spec.updatedAt ? '?v=' + encodeURIComponent(spec.updatedAt) : '';
+  return `${API_BASE}/api/specialists/${spec.id}/photo${v}`;
+}
+function avatarHtml(spec){
+  if(!spec.hasPhoto) return initialsHtml(spec.name);
+  return `<img src="${photoUrl(spec)}" alt="" loading="lazy" data-name="${escapeAttr(spec.name)}" style="width:100%; height:100%; object-fit:cover; border-radius:50%;" onerror="avatarFallback(this)">`;
+}
+// Приводим данные специалиста от сервера к тому виду, который ждёт остальной код
 function mapApiSpecialist(s){
   return {
     id: s.id,
     name: s.name,
     role: s.role,
-    about: s.about,
-    services: s.services || [],
+    about: s.about || '',
+    services: Array.isArray(s.services) ? s.services : [],
     contacts: {
       telegram: s.contactsTelegram || undefined,
       instagram: s.contactsInstagram || undefined,
@@ -753,13 +878,22 @@ function mapApiSpecialist(s){
     catId: s.categoryId,
     subcatId: s.subcategoryId,
     cityId: s.cityId,
-    status: s.status,
+    worksOnline: !!s.worksOnline,
+    status: s.status || 'published',
     rejectionReason: s.rejectionReason,
     editRejectionReason: s.editRejectionReason,
+    pendingChanges: s.pendingChanges || null,
+    hasPendingChanges: !!s.hasPendingChanges,
+    extraSubcategories: Array.isArray(s.extraSubcategories) ? s.extraSubcategories : [],
     verified: !!s.verified,
     pro: !!s.pro,
+    proExpiresAt: s.proExpiresAt || null,
+    proRecurring: !!s.proRecurring,
     boosted: !!s.boosted,
-    photoFileId: s.photoFileId || null,
+    boostedUntil: s.boostedUntil || null,
+    trialBoostAvailable: !!s.trialBoostAvailable,
+    recommendCount: s.recommendCount || 0,
+    hasPhoto: !!s.hasPhoto,
     updatedAt: s.updatedAt || null,
     createdAt: s.createdAt || null,
     publicId: s.publicId || null
@@ -784,7 +918,7 @@ function mapApiCategory(c){
 // каждом открытии приложения не спрашивать сервер заново. Если сервер недоступен —
 // показываем то, что сохранено, даже если оно устарело. Хранилище браузера может
 // быть недоступно (приватный режим) — тогда просто работаем без кэша.
-const CACHE_PREFIX = 'krug_cache_v1:';
+const CACHE_PREFIX = 'krug_cache_v2:'; // v2: новый формат анкет (hasPhoto, рекомендации, онлайн)
 const CATALOG_CACHE_MS = 6 * 60 * 60 * 1000;   // категории и города меняются редко
 const PRICES_CACHE_MS = 30 * 60 * 1000;        // цены — чаще, но итоговую сумму всё равно показывает Telegram при оплате
 const LIST_CACHE_MS = 10 * 60 * 1000;          // списки анкет в разделе
@@ -813,6 +947,17 @@ function cacheListKeys(){
     }
   } catch(e){}
   return keys;
+}
+// Старые сохранённые данные прошлой версии приложения больше не нужны
+function cacheDropOldVersions(){
+  try {
+    const old = [];
+    for(let i = 0; i < localStorage.length; i++){
+      const k = localStorage.key(i);
+      if(k && k.indexOf('krug_cache_') === 0 && k.indexOf(CACHE_PREFIX) !== 0) old.push(k);
+    }
+    old.forEach(k => localStorage.removeItem(k));
+  } catch(e){}
 }
 function cacheClearLists(){
   cacheListKeys().forEach(k => { try { localStorage.removeItem(k); } catch(e){} });
@@ -865,15 +1010,13 @@ const CONTACT_LABELS = {telegram:'Telegram', phone:'Телефон', instagram:'
 let currentCity = localStorage.getItem('krug_city') || 'sofia';
 let currentListCatId = null;
 let currentListSubId = null;
-let openCategoryId = null;
 let favorites = new Set();
-let profileReturnScreen = 'list';
 let currentProfileId = null;
 let lastListSpecs = [];
 let lastListReturnTo = 'list';
 let pickerOnSelect = null;
 let addForm = null;
-let nextSubmissionId = 200;
+let editForm = null;
 let MY_LISTING_IDS = new Set();
 let moneySpecId = null;
 let supportTopicId = null;
@@ -885,10 +1028,7 @@ let PRO_PRICE = 500;
 let BOOST_PRICES = {7:200, 30:600};
 
 /* ---------- helpers ---------- */
-function cityLabel(){ return CITIES.find(c => c.id === currentCity).label; }
-// Раньше здесь была временная заглушка "работаем только с Софией" — теперь городов
-// и стран несколько, поэтому доступны все города из каталога без исключений.
-function isCityAvailable(){ return true; }
+function cityLabel(){ const c = CITIES.find(x => x.id === currentCity); return c ? c.label : ''; }
 const COUNTRY_LABELS_RU = {Bulgaria: 'Болгария', Poland: 'Польша'};
 function countryLabelRu(country){ return COUNTRY_LABELS_RU[country] || country; }
 // Полноценное HTML-экранирование — раньше здесь была функция, которая экранировала
@@ -917,31 +1057,71 @@ function sortForDisplay(specs){
   return [...boosted, ...pro, ...rest];
 }
 
-/* ---------- categories on home ---------- */
+/* ---------- категории на главной ---------- */
+// Сетка кружков: нажатие открывает шторку со списком подкатегорий
 function renderCategoryScroll(){
   document.getElementById('cat-scroll').innerHTML = CATEGORIES.map(c => `
-    <button class="cat-chip ${c.id === openCategoryId ? 'active' : ''}" onclick="toggleCategory('${c.id}')">
-      <div class="cat-circle"><svg viewBox="0 0 24 24" fill="${c.icon==='sparkle'?'currentColor':'none'}" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${ICONS[c.icon]}</svg></div>
-      <span>${c.label}</span>
+    <button class="cat-chip" onclick="openCategorySheet('${c.id}')">
+      <div class="cat-circle"><svg viewBox="0 0 24 24" fill="${c.icon==='sparkle'?'currentColor':'none'}" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${ICONS[c.icon] || ICONS.briefcase}</svg></div>
+      <span>${escapeAttr(c.label)}</span>
     </button>
   `).join('');
 }
-function toggleCategory(id){
-  openCategoryId = (openCategoryId === id) ? null : id;
-  renderCategoryScroll();
-  renderSubcatPanel();
+function openCategorySheet(catId){
+  const cat = CATEGORIES.find(c => c.id === catId);
+  if(!cat) return;
+  openPicker(cat.label, cat.subcats, null, (subId) => openSubcategory(catId, subId));
 }
-function renderSubcatPanel(){
-  const panel = document.getElementById('subcat-panel');
-  const inner = document.getElementById('subcat-inner');
-  if(!openCategoryId){ panel.classList.remove('open'); inner.innerHTML=''; return; }
-  const cat = CATEGORIES.find(c => c.id === openCategoryId);
-  inner.innerHTML = `
-    <div class="subcat-panel-title">${cat.label}</div>
-    <div class="subcat-chips">
-      ${cat.subcats.map(s => `<button class="subcat-chip" onclick="openSubcategory('${cat.id}','${s.id}')">${s.label}</button>`).join('')}
-    </div>`;
-  panel.classList.add('open');
+
+/* ---------- подборки на главной ---------- */
+// «Вы недавно смотрели» (хранится на телефоне), «Популярное» и «Новые в вашем городе»
+// (с сервера, сохраняются на телефоне на 10 минут для каждого города).
+const HOME_CACHE_MS = 10 * 60 * 1000;
+let homeData = null;
+let homeDataCity = null;
+let recentSpecs = [];
+async function loadHomeSections(){
+  const city = currentCity;
+  const recentIds = readRecent();
+  const [home, recent] = await Promise.all([
+    cachedApi('home:' + city, '/api/home?cityId=' + encodeURIComponent(city), HOME_CACHE_MS).catch(() => null),
+    recentIds.length ? apiRequest('/api/specialists?ids=' + recentIds.join(',')).catch(() => null) : Promise.resolve([])
+  ]);
+  if(city !== currentCity) return; // пока грузилось, сменили город
+  if(home){
+    homeData = {fresh: listFromApi(home.fresh || []), popular: listFromApi(home.popular || [])};
+    homeDataCity = city;
+  }
+  if(recent) recentSpecs = listFromApi(recent);
+  renderHomeSections();
+}
+function personChipHtml(spec, source){
+  return `<button class="person-chip" onclick="openProfileById(${spec.id}, 'home', '${source}')">
+    <div class="avatar ${spec.boosted ? 'boosted' : ''}">${avatarHtml(spec)}</div>
+    <div class="person-name">${escapeAttr(spec.name)}</div>
+    <div class="person-role">${escapeAttr(spec.role)}</div>
+  </button>`;
+}
+function homeSectionHtml(title, specs, source){
+  if(!specs || !specs.length) return '';
+  return `<div class="home-section">
+    <div class="section-label">${title}</div>
+    <div class="people-scroll">${specs.map(s => personChipHtml(s, source)).join('')}</div>
+  </div>`;
+}
+function renderHomeSections(){
+  const box = document.getElementById('home-sections');
+  if(!box) return;
+  // Порядок недавно открытых — как на телефоне (самые свежие первыми)
+  const order = readRecent();
+  // Анкеты, открытые в этот раз, уже есть в памяти — берём их оттуда
+  const recent = order.map(id => {
+    const known = ALL_SPECIALISTS[id];
+    return known && known.status === 'published' ? known : recentSpecs.find(s => s.id === id);
+  }).filter(Boolean);
+  const data = homeDataCity === currentCity ? homeData : null;
+  box.innerHTML = homeSectionHtml('ВЫ НЕДАВНО СМОТРЕЛИ', recent, 'home')
+    + (data ? homeSectionHtml('ПОПУЛЯРНОЕ В ГОРОДЕ', data.popular, 'home') + homeSectionHtml('НОВЫЕ В ГОРОДЕ', data.fresh, 'home') : '');
 }
 
 /* ---------- list ---------- */
@@ -1010,27 +1190,40 @@ function renderList(specs, returnTo, emptyHtml){
 function renderCurrentList(){ renderList(lastListSpecs, lastListReturnTo); }
 
 /* ---------- поиск ---------- */
-async function performSearch(rawQuery){
+// Тот же поиск, что и через "@krugspace_bot" в чатах: понимает окончания слов,
+// ищет по услугам, категориям и подкатегориям. Сначала — в выбранном городе
+// (плюс те, кто работает онлайн по стране); если там пусто — можно искать везде.
+let lastSearchQuery = '';
+function submitHomeSearch(){
+  const input = document.getElementById('home-search-input');
+  hideSuggestions();
+  input.blur();
+  performSearch(input.value);
+}
+async function performSearch(rawQuery, everywhere){
   const query = (rawQuery || '').trim();
   if(!query) return;
+  lastSearchQuery = query;
   currentListSource = 'search';
+  currentListSubId = null;
 
-  document.getElementById('list-title').textContent = 'ПОИСК: ' + query.toUpperCase();
+  document.getElementById('list-title').textContent = 'ПОИСК: ' + query.toUpperCase() + (everywhere ? '' : ', ' + cityLabel().toUpperCase());
   document.getElementById('list-items').innerHTML = LOADER_HTML;
   showScreen('list');
 
   try {
     const params = new URLSearchParams({search: query});
-    if(isCityAvailable()) params.set('cityId', currentCity);
+    if(!everywhere) params.set('cityId', currentCity);
     const results = await apiRequest('/api/specialists?' + params.toString());
-    const specs = results.map(mapApiSpecialist);
-    specs.forEach(s => { ALL_SPECIALISTS[s.id] = s; });
-
+    if(lastSearchQuery !== query) return; // пока ждали, человек начал другой поиск
+    const specs = listFromApi(results);
+    const tryEverywhere = everywhere ? '' : `<button class="btn-full" style="margin-top:16px;" onclick="performSearch(lastSearchQuery, true)">Искать во всех городах</button>`;
     renderList(specs, 'list', `
       <div class="empty-state">
         <div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">${ICONS.gift}</svg></div>
-        <div class="empty-title">Ничего не найдено</div>
-        <div class="empty-text">Попробуйте другой запрос или посмотрите категории на главной.</div>
+        <div class="empty-title">Ничего не найдено${everywhere ? '' : ' в этом городе'}</div>
+        <div class="empty-text">Попробуйте другое слово или посмотрите категории на главной.</div>
+        ${tryEverywhere}
       </div>`);
   } catch(e) {
     document.getElementById('list-items').innerHTML = `
@@ -1040,10 +1233,42 @@ async function performSearch(rawQuery){
       </div>`;
   }
 }
+// Подсказки при наборе: подходящие подкатегории из каталога (он уже загружен
+// на телефоне, поэтому подсказки появляются мгновенно, без запросов к серверу)
+function searchStem(word){
+  if(word.length >= 6) return word.slice(0, -2);
+  if(word.length === 5) return word.slice(0, -1);
+  return word;
+}
+function renderSuggestions(raw){
+  const box = document.getElementById('suggest-list');
+  const query = String(raw || '').trim().toLowerCase();
+  const words = query.replace(/[^\p{L}\p{N}\s-]/gu, ' ').split(/\s+/).filter(w => w.length >= 2).map(searchStem);
+  if(!words.length){ hideSuggestions(); return; }
+  const found = [];
+  CATEGORIES.forEach(cat => cat.subcats.forEach(sub => {
+    const text = (sub.label + ' ' + cat.label).toLowerCase();
+    if(words.every(w => text.includes(w))) found.push({cat, sub});
+  }));
+  const items = found.slice(0, 5).map(({cat, sub}) => `
+    <div class="suggest-item" onmousedown="event.preventDefault()" onclick="pickSuggestion('${cat.id}','${sub.id}')">
+      <b>${escapeAttr(sub.label)}</b><span>${escapeAttr(cat.label)}</span>
+    </div>`);
+  items.push(`<div class="suggest-item" onmousedown="event.preventDefault()" onclick="submitHomeSearch()"><b>Искать «${escapeAttr(String(raw).trim())}»</b><span>по именам, услугам и описаниям</span></div>`);
+  box.innerHTML = items.join('');
+  box.classList.add('open');
+}
+function hideSuggestions(){
+  const box = document.getElementById('suggest-list');
+  if(box) box.classList.remove('open');
+}
+function pickSuggestion(catId, subId){
+  hideSuggestions();
+  document.getElementById('home-search-input').blur();
+  openSubcategory(catId, subId);
+}
 function emptyStateHtml(){
-  const text = !isCityAvailable()
-    ? 'Мы начинаем с Софии и скоро добавим другие города.'
-    : 'Станьте первым, кто добавит здесь услугу.';
+  const text = 'Станьте первым, кто добавит здесь услугу.';
   return `<div class="empty-state">
     <div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">${ICONS.gift}</svg></div>
     <div class="empty-title">Пока нет специалистов</div>
@@ -1051,10 +1276,32 @@ function emptyStateHtml(){
     <button class="btn-full" style="margin-top:16px;" onclick="openAddForm()">Добавить специалиста</button>
   </div>`;
 }
+// Значки контактов в карточке — рабочие: нажатие сразу открывает Telegram,
+// набор номера, Instagram или сайт, без захода в анкету
+function contactIconsHtml(spec){
+  return CONTACT_ORDER.filter(t => spec.contacts[t]).map(t => `
+    <button class="contact-icon-mini" aria-label="${CONTACT_LABELS[t]}" onclick="event.stopPropagation(); openContact(${spec.id}, '${t}', '${encodeURIComponent(spec.contacts[t])}', 'card')">
+      <svg viewBox="0 0 24 24" fill="${t === 'telegram' ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ICONS[t]}</svg>
+    </button>`).join('');
+}
+function cityShort(spec){
+  const city = CITIES.find(c => c.id === spec.cityId);
+  if(spec.worksOnline) return 'Онлайн · ' + (city ? countryLabelRu(city.country) : 'по всей стране');
+  return city ? city.label : '';
+}
+function recommendText(n){
+  return n + ' ' + plural(n, 'рекомендует', 'рекомендуют', 'рекомендуют');
+}
+function plural(n, one, few, many){
+  const m10 = n % 10, m100 = n % 100;
+  if(m10 === 1 && m100 !== 11) return one;
+  if(m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return few;
+  return many;
+}
 function renderSpecialistCard(spec, returnTo){
   const isFav = favorites.has(spec.id);
   const servicesPreview = spec.services.slice(0,2).join(' · ');
-  const contactTypes = CONTACT_ORDER.filter(t => spec.contacts[t]);
+  const meta = [cityShort(spec), spec.recommendCount ? recommendText(spec.recommendCount) : ''].filter(Boolean).join(' · ');
   return `
   <div class="spec-card">
     ${spec.boosted ? `<div class="top-ribbon">ТОП</div>` : ''}
@@ -1068,11 +1315,10 @@ function renderSpecialistCard(spec, returnTo){
         </div>
         <div class="spec-role">${escapeAttr(spec.role)}</div>
         <div class="spec-services">${escapeAttr(servicesPreview)}</div>
-        <div class="contact-icons-row">
-          ${contactTypes.map(t => `<div class="contact-icon-mini"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ICONS[t]}</svg></div>`).join('')}
-        </div>
+        ${meta ? `<div class="card-meta">${escapeAttr(meta)}</div>` : ''}
+        <div class="contact-icons-row">${contactIconsHtml(spec)}</div>
       </div>
-      <button class="fav-btn ${isFav ? 'active' : ''}" onclick="event.stopPropagation(); toggleFavorite(${spec.id})">
+      <button class="fav-btn ${isFav ? 'active' : ''}" aria-label="В избранное" onclick="event.stopPropagation(); toggleFavorite(${spec.id})">
         <svg viewBox="0 0 24 24" fill="${isFav ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ICONS.heart}</svg>
       </button>
     </div>
@@ -1136,6 +1382,7 @@ async function loadFavoritesFromServer(){
 
 /* ---------- profile ---------- */
 async function openProfileById(id, returnTo, viewSource){
+  closeDupSheet();
   let s = ALL_SPECIALISTS[id];
   if(!s){
     try {
@@ -1147,25 +1394,23 @@ async function openProfileById(id, returnTo, viewSource){
       return;
     }
   }
-  profileReturnScreen = returnTo || 'list';
   fillProfile(s);
   showScreen('profile');
+  rememberRecent(s.id);
   trackEvent(s.id, 'view', {source: viewSource || viewSourceFor(returnTo)});
 }
-function goBackFromProfile(){ showScreen(profileReturnScreen); }
 function fillProfile(spec){
   currentProfileId = spec.id;
-  const v = spec.updatedAt ? '?v=' + encodeURIComponent(spec.updatedAt) : '';
-  document.getElementById('profile-avatar').innerHTML = spec.photoFileId
-    ? `<img src="${API_BASE}/api/specialists/${spec.id}/photo${v}" alt="" style="width:100%; height:100%; object-fit:cover; border-radius:50%;" onerror="this.parentElement.innerHTML='<svg viewBox=\\'0 0 24 24\\' fill=\\'currentColor\\'><circle cx=\\'12\\' cy=\\'8\\' r=\\'4\\'/><path d=\\'M4 20c0-4.4 3.6-7 8-7s8 2.6 8 7\\'/></svg>'">`
-    : `<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>`;
+  document.getElementById('profile-avatar').innerHTML = avatarHtml(spec);
   document.getElementById('p-name').textContent = spec.name;
   document.getElementById('p-role').textContent = spec.role;
-  document.getElementById('p-verified').innerHTML = renderProfileBadges(spec);
+  document.getElementById('p-verified').innerHTML = renderProfileBadges(spec) + recommendRowHtml(spec);
   document.getElementById('p-about').textContent = spec.about;
+  document.getElementById('p-about-title').style.display = spec.about ? '' : 'none';
   document.getElementById('tab-services').innerHTML = spec.services.map(item => `
     <div class="service-row"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${CHECK}</svg>${escapeAttr(item)}</div>
   `).join('');
+  document.getElementById('p-services-title').style.display = spec.services.length ? '' : 'none';
   document.getElementById('p-contacts').innerHTML = renderContactsBlock(spec);
   document.getElementById('p-location').innerHTML = locationBlockHtml(spec);
   document.getElementById('p-claim').innerHTML = spec.verified ? '' : `
@@ -1177,11 +1422,58 @@ function fillProfile(spec){
 }
 function renderProfileBadges(spec){
   const chips = [];
-  if(spec.verified) chips.push(`<div class="verified-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">${CHECK}</svg>Подтверждено специалистом</div>`);
+  if(spec.verified) chips.push(`<div class="verified-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">${CHECK}</svg>Анкету ведёт специалист</div>`);
+  if(spec.worksOnline) chips.push(`<div class="verified-badge">${escapeAttr(cityShort(spec))}</div>`);
   if(spec.pro) chips.push(`<div class="verified-badge chip-fill">PRO-специалист</div>`);
   if(spec.boosted) chips.push(`<div class="verified-badge chip-fill">⚡ Продвигается сейчас</div>`);
   return chips.length ? `<div class="badges-row">${chips.join('')}</div>` : '';
 }
+
+/* ---------- «Рекомендую» ---------- */
+// Один голос от одного аккаунта Telegram: без текста и оценок, только количество.
+let myRecommendations = new Set();
+async function loadMyRecommendations(){
+  if(!tgInitData) return;
+  try {
+    myRecommendations = new Set(await apiRequest('/api/me/recommendations'));
+  } catch(e){ /* не страшно: просто не подсветим кнопку */ }
+}
+function isMyOwnListing(spec){
+  return spec.verified && MY_LISTING_IDS.has(spec.id);
+}
+function recommendRowHtml(spec){
+  const n = spec.recommendCount || 0;
+  const countText = n ? `Рекомендуют: ${n}` : 'Пока никто не рекомендовал';
+  if(isMyOwnListing(spec)) return n ? `<div class="rec-row"><span class="rec-count">${countText}</span></div>` : '';
+  const active = myRecommendations.has(spec.id);
+  return `<div class="rec-row">
+    <button class="rec-btn ${active ? 'active' : ''}" onclick="toggleRecommend(${spec.id})">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONS.thumb}</svg>${active ? 'Вы рекомендуете' : 'Рекомендую'}
+    </button>
+    <span class="rec-count">${countText}</span>
+  </div>`;
+}
+let recommendBusy = false;
+async function toggleRecommend(id){
+  const spec = ALL_SPECIALISTS[id];
+  if(!spec || recommendBusy) return;
+  if(!tgInitData){ showToast('Доступно только внутри Telegram'); return; }
+  recommendBusy = true;
+  const was = myRecommendations.has(id);
+  try {
+    const res = await apiRequest(`/api/me/specialists/${id}/recommend`, {method: was ? 'DELETE' : 'POST'});
+    if(was) myRecommendations.delete(id); else myRecommendations.add(id);
+    spec.recommendCount = res.count;
+    haptic('light');
+    if(currentProfileId === id) document.getElementById('p-verified').innerHTML = renderProfileBadges(spec) + recommendRowHtml(spec);
+    if(!was) showToast('Спасибо! Это поможет другим выбрать');
+  } catch(e){
+    showToast(e.message || 'Не удалось сохранить');
+  } finally {
+    recommendBusy = false;
+  }
+}
+
 // Открывает внешнюю ссылку. Внутри Telegram (мини-приложение) пользуемся его же
 // методами — так ссылка открывается в системном браузере/приложении, а не
 // теряется внутри WebView. Вне Telegram (например, при тестировании в обычном
@@ -1252,9 +1544,9 @@ function openTelegramProfile(username){
 }
 // Значение приходит через encodeURIComponent, чтобы кавычки/спецсимволы в номере
 // телефона, ссылке или имени пользователя не ломали атрибут onclick.
-function openContact(type, encodedValue){
+function openContact(specId, type, encodedValue){
   const value = decodeURIComponent(encodedValue);
-  trackEvent(currentProfileId, 'contact', {detail: type});
+  trackEvent(specId, 'contact', {detail: type});
   if(type === 'telegram'){
     openTelegramProfile(value);
   } else if(type === 'phone'){
@@ -1290,7 +1582,7 @@ function renderContactsBlock(spec){
     const isPhone = t === 'phone';
     const encodedValue = encodeURIComponent(spec.contacts[t]);
     return `
-    <div class="contact-row tappable" onclick="openContact('${t}','${encodedValue}')">
+    <div class="contact-row tappable" onclick="openContact(${spec.id}, '${t}','${encodedValue}')">
       <div class="contact-icon"><svg viewBox="0 0 24 24" fill="${isTg ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${ICONS[t]}</svg></div>
       <div class="contact-text-wrap"><div class="contact-label">${CONTACT_LABELS[t]}</div><div class="contact-value">${escapeAttr(spec.contacts[t])}</div></div>
       ${isPhone ? `<button class="copy-btn" onclick="event.stopPropagation(); copyContactValue('${encodedValue}')" aria-label="Скопировать номер"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg></button>` : ''}
@@ -1331,6 +1623,19 @@ function locationBlockHtml(spec){
     </div>
     <div class="location-address">${escapeAttr(spec.location.address)}</div>`;
 }
+/* ---------- вы недавно смотрели ---------- */
+// Номера последних открытых анкет хранятся только на этом телефоне
+const RECENT_KEY = 'krug_recent';
+const RECENT_MAX = 12;
+function readRecent(){
+  try { const v = JSON.parse(localStorage.getItem(RECENT_KEY)); return Array.isArray(v) ? v.filter(Number.isInteger) : []; }
+  catch(e){ return []; }
+}
+function rememberRecent(id){
+  const list = [id, ...readRecent().filter(x => x !== id)].slice(0, RECENT_MAX);
+  try { localStorage.setItem(RECENT_KEY, JSON.stringify(list)); } catch(e){}
+}
+
 function setProfileFavButton(id){
   const btn = document.getElementById('profile-fav-btn');
   const isFav = favorites.has(id);
@@ -1347,13 +1652,57 @@ function memberSinceLabel(createdAt){
   return 'в КРУГ с ' + MONTHS_RU_GENITIVE[d.getMonth()] + ' ' + d.getFullYear();
 }
 
-/* ---------- navigation ---------- */
-function showScreen(name){
+/* ---------- навигация ---------- */
+// История экранов: кнопка «Назад» (в приложении, кнопка Telegram и системная
+// кнопка на Android) возвращает на предыдущий экран, а не закрывает приложение.
+// Сначала «Назад» закрывает открытую шторку или меню.
+let navStack = [];
+let currentScreen = 'home';
+function showScreen(name, opts){
+  const back = opts && opts.back;
+  if(name === 'home'){
+    navStack = [];
+  } else if(!back && name !== currentScreen){
+    const i = navStack.indexOf(name);
+    if(i >= 0) navStack = navStack.slice(0, i);
+    else navStack.push(currentScreen);
+  }
+  currentScreen = name;
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById('screen-' + name).classList.add('active');
   document.getElementById('add-cta').style.display = (name === 'add') ? 'block' : 'none';
+  if(name === 'home') renderHomeSections();
+  updateBackButton();
 }
 function goHome(){ showScreen('home'); }
+// Открытые шторки: [шторка, функция закрытия] — сверху вниз
+const LAYERS = [
+  ['pickerSheet', () => closePicker()],
+  ['dupSheet', () => closeDupSheet()],
+  ['claimSheet', () => closeClaimSheet()],
+  ['moneySheet', () => closeMoneySheet()],
+  ['ownStatsSheet', () => closeOwnStatsSheet()],
+  ['editOwnSheet', () => closeEditOwnSheet()],
+  ['sideMenu', () => closeMenu()]
+];
+function topLayer(){
+  return LAYERS.find(([id]) => { const el = document.getElementById(id); return el && el.classList.contains('open'); });
+}
+function goBack(){
+  const layer = topLayer();
+  if(layer){ layer[1](); return; }
+  if(currentScreen === 'add' && addForm && addForm.step !== 'success' && addForm.step > 1){
+    addForm.step--; renderAddStep(); return;
+  }
+  showScreen(navStack.pop() || 'home', {back: true});
+}
+function updateBackButton(){
+  if(!tg || !tg.BackButton) return;
+  if(currentScreen !== 'home' || topLayer()) tg.BackButton.show(); else tg.BackButton.hide();
+}
+function haptic(style){
+  try { if(tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred(style || 'light'); } catch(e){}
+}
 
 /* ---------- поддержка ---------- */
 const SUPPORT_TOPICS = [
@@ -1365,14 +1714,16 @@ const SUPPORT_TOPICS = [
   {id:'other', label:'Другое'}
 ];
 const FAQ_ITEMS = [
-  {q:'Как добавить свою анкету в каталог?', a:'В меню выберите «Добавить специалиста» и заполните короткую анкету — категория, город, контакты, описание услуг. После отправки анкета уходит на проверку модератору и появляется в каталоге после одобрения.'},
-  {q:'Сколько занимает проверка анкеты?', a:'Обычно проверка занимает от нескольких часов до одного-двух дней. Если анкета отклонена, в разделе «Мои услуги» будет указана причина.'},
-  {q:'Как подтвердить, что анкета моя?', a:'Откройте анкету и нажмите «Это я» — если ваш Telegram-username совпадает с указанным в контактах анкеты, подтверждение произойдёт автоматически. Если нет — разместите код подтверждения в био Instagram или на сайте, и модератор проверит вручную.'},
-  {q:'Что даёт статус PRO?', a:'PRO — платная подписка для владельцев подтверждённых анкет, которая выделяет анкету среди обычных в списке специалистов.'},
-  {q:'Чем Буст отличается от PRO?', a:'Буст поднимает анкету в начало списка на выбранный срок (7 или 30 дней), тогда как PRO — более долгосрочный статус на анкете. Оба можно оформить из своей анкеты в «Мои услуги».'},
-  {q:'Можно ли самому сменить категорию или город анкеты?', a:'Название, описание, контакты и город можно менять самостоятельно — правки уйдут на повторную проверку модератором. Категорию и подкатегорию может изменить только администратор — напишите в поддержку, если это нужно.'},
+  {q:'Как добавить свою анкету в каталог?', a:'В меню выберите «Добавить специалиста», отметьте «Себя» и заполните короткую анкету — категория, город, контакты, услуги, по желанию фото. После отправки анкета уходит на проверку модератору и появляется в каталоге после одобрения.'},
+  {q:'Сколько занимает проверка анкеты?', a:'Обычно от нескольких часов до суток. Бот сообщит о результате. Если анкета отклонена, в разделе «Мои услуги» будет указана причина.'},
+  {q:'Как подтвердить, что анкета моя?', a:'Откройте анкету и нажмите «Это ваша анкета? Подтвердить». Если Telegram в анкете совпадает с вашим аккаунтом, подтверждение произойдёт сразу. Если нет — разместите код подтверждения в описании Instagram или на сайте, и модератор проверит вручную.'},
+  {q:'Что даёт PRO?', a:'PRO — подписка для владельцев подтверждённых анкет: анкета выше обычных в списках и в поиске через бота, бейдж PRO, показ в дополнительных подкатегориях, приоритетная проверка правок и полная статистика. Продлевается каждый месяц автоматически, отменить можно в любой момент в Telegram (Настройки → Мои звёзды).'},
+  {q:'Чем буст отличается от PRO?', a:'Буст поднимает анкету в самое начало списка её подкатегории на 7 или 30 дней. Повторная покупка продлевает срок, дни не сгорают. Первый буст на 3 дня — бесплатно. Оформить можно в «Мои услуги».'},
+  {q:'Что значит «Рекомендую»?', a:'Если вы пользовались услугами специалиста и довольны, нажмите «Рекомендую» в его анкете. Один человек — один голос, без отзывов и оценок. Это помогает другим выбрать.'},
+  {q:'Можно ли самому сменить категорию или город анкеты?', a:'Название, описание, услуги, контакты, фото и город можно менять самостоятельно — правки уйдут на проверку, а анкета до проверки останется в каталоге в прежнем виде. Основную категорию может изменить только администратор — напишите в поддержку. С PRO можно добавить анкету в дополнительные подкатегории.'},
+  {q:'Я работаю онлайн — как меня найдут в других городах?', a:'Включите в анкете «Онлайн или по всей стране» — анкету увидят во всех городах этой страны.'},
   {q:'Нужного города нет в списке — что делать?', a:'Мы постепенно добавляем новые города и страны. Напишите в поддержку, в каком городе вам нужен каталог, — учтём при расширении.'},
-  {q:'Как удалить свою анкету?', a:'В разделе «Мои услуги» откройте анкету и нажмите «Удалить» — анкета удаляется сразу, без ожидания модерации.'}
+  {q:'Как удалить свою анкету?', a:'В разделе «Мои услуги» нажмите «Удалить» у анкеты — она удаляется сразу. Если подключена подписка PRO, она отменится автоматически.'}
 ];
 function openSupportScreen(){
   document.getElementById('support-topic-value').textContent = 'Выбрать';
@@ -1477,7 +1828,7 @@ function openPicker(title, options, activeId, onSelect){
   pickerOnSelect = onSelect;
   document.getElementById('picker-list').innerHTML = options.map(o => `
     <div class="sheet-option ${o.id === activeId ? 'active' : ''}" onclick="selectPickerOption('${o.id}')">
-      ${o.label}
+      ${escapeAttr(o.label)}
       <svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
     </div>
   `).join('');
@@ -1505,7 +1856,7 @@ function renderCountryStep(activeCityId){
   document.getElementById('picker-title').textContent = 'Страна';
   document.getElementById('picker-list').innerHTML = countries.map(country => `
     <div class="sheet-option ${country === activeCountry ? 'active' : ''}" onclick="renderCityStep('${country}', '${activeCityId || ''}')">
-      ${countryLabelRu(country)}
+      ${escapeAttr(countryLabelRu(country))}
       <svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
     </div>
   `).join('');
@@ -1519,7 +1870,7 @@ function renderCityStep(country, activeCityId){
     </div>
   ` + cities.map(c => `
     <div class="sheet-option ${c.id === activeCityId ? 'active' : ''}" onclick="selectLocationCity('${c.id}')">
-      ${c.label}
+      ${escapeAttr(c.label)}
       <svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
     </div>
   `).join('');
@@ -1529,15 +1880,26 @@ function selectLocationCity(id){
   if(locationPickerOnSelect) locationPickerOnSelect(id);
 }
 
+function updateCityLabels(){
+  const city = CITIES.find(c => c.id === currentCity);
+  document.getElementById('city-label').textContent = cityLabel().toUpperCase();
+  document.getElementById('city-line-label').textContent = city
+    ? city.label + (city.country ? ', ' + countryLabelRu(city.country) : '')
+    : 'Выбрать город';
+}
 function openCityModal(){
   document.getElementById('city-pill').classList.add('expanded');
   openLocationPicker(currentCity, (id) => {
     currentCity = id;
-    localStorage.setItem('krug_city', id);
-    document.getElementById('city-label').textContent = cityLabel().toUpperCase();
+    try { localStorage.setItem('krug_city', id); } catch(e){}
+    updateCityLabels();
     showToast('Показаны специалисты: ' + cityLabel());
-    if(currentListSubId){
-      openSubcategory(currentListCatId, currentListSubId);
+    renderHomeSections();
+    loadHomeSections();
+    // Если сейчас открыт список — показываем его уже для нового города
+    if(currentScreen === 'list'){
+      if(currentListSource === 'search' && lastSearchQuery) performSearch(lastSearchQuery);
+      else if(currentListSubId) openSubcategory(currentListCatId, currentListSubId);
     }
   });
 }
@@ -1588,7 +1950,7 @@ function openClaimSheet(id){
     content.innerHTML = `
       <div class="note-text">Мы сверяем это автоматически по вашему Telegram-аккаунту в этом чате — если анкета действительно ваша, подтверждение произойдёт мгновенно, без лишних шагов.</div>
       <div class="field-label">TELEGRAM В АНКЕТЕ</div>
-      <div class="form-row" style="cursor:default;"><div class="form-row-label">${spec.contacts.telegram}</div></div>
+      <div class="form-row" style="cursor:default;"><div class="form-row-label">${escapeAttr(spec.contacts.telegram)}</div></div>
       <button class="btn-full" style="margin-top:20px;" onclick="confirmClaimTelegram()">Подтвердить, что это я</button>
     `;
   } else {
@@ -1644,37 +2006,215 @@ async function confirmClaimCode(){
   }
 }
 
-/* ---------- add-specialist form ---------- */
-let claimResultMessage = null;
-function resetAddForm(){
-  addForm = {
-    step: 1,
-    category: null, subcat: null,
-    name: '', city: currentCity, about: '', services: [''],
-    contacts: {telegram:'', instagram:'', phone:'', website:''},
-    claimSelf: false,
-    hasLocation: true, address: ''
+/* ---------- поля анкеты (общие для добавления и правки) ---------- */
+// Форма добавления (addForm) и форма правки своей анкеты (editForm) собираются из
+// одних и тех же блоков. f — имя объекта формы ('addForm' или 'editForm'):
+// по нему поля сохраняют введённое и перерисовывают нужную форму.
+function formObj(f){ return f === 'addForm' ? addForm : editForm; }
+function rerenderForm(f){
+  if(f === 'addForm') renderAddStep(); else renderEditOwnSheet();
+}
+function formChanged(f){
+  if(f === 'addForm') saveAddDraft();
+}
+function setFormField(f, key, value){ formObj(f)[key] = value; formChanged(f); }
+function setFormContact(f, key, value){ formObj(f).contacts[key] = value; formChanged(f); }
+function updateServiceIn(f, i, val){ formObj(f).services[i] = val; formChanged(f); }
+function addServiceTo(f){ formObj(f).services.push(''); formChanged(f); rerenderForm(f); }
+function removeServiceFrom(f, i){ formObj(f).services.splice(i, 1); formChanged(f); rerenderForm(f); }
+function toggleFormFlag(f, key){ formObj(f)[key] = !formObj(f)[key]; formChanged(f); rerenderForm(f); }
+function pickCityForForm(f){
+  openLocationPicker(formObj(f).city, (id) => { formObj(f).city = id; formChanged(f); rerenderForm(f); });
+}
+function pickPhotoForForm(f, input){
+  const file = input.files && input.files[0];
+  if(!file) return;
+  if(!/^image\//.test(file.type)){ showToast('Выберите фотографию'); return; }
+  if(file.size > 8 * 1024 * 1024){ showToast('Фото слишком большое — до 8 МБ'); return; }
+  const form = formObj(f);
+  if(form.photoPreview) URL.revokeObjectURL(form.photoPreview);
+  form.photoFile = file;
+  form.photoPreview = URL.createObjectURL(file);
+  rerenderForm(f);
+}
+function toggleHtml(on, onclick){
+  return `<div class="toggle-switch ${on ? 'on' : ''}" onclick="${onclick}"><div class="toggle-knob"></div></div>`;
+}
+function fieldPhotoHtml(f, currentAvatar){
+  const form = formObj(f);
+  const preview = form.photoPreview
+    ? `<img src="${form.photoPreview}" alt="" style="width:100%; height:100%; object-fit:cover; border-radius:50%;">`
+    : currentAvatar || initialsHtml(form.name);
+  return `
+    <div class="field-label">ФОТО${f === 'addForm' ? ' (НЕОБЯЗАТЕЛЬНО)' : ''}</div>
+    <div class="photo-pick">
+      <div class="avatar">${preview}</div>
+      <label>${form.photoFile ? 'Выбрать другое' : 'Выбрать фото'}<input type="file" accept="image/*" onchange="pickPhotoForForm('${f}', this)"></label>
+    </div>`;
+}
+function fieldsInfoHtml(f){
+  const form = formObj(f);
+  const self = f === 'editForm' || form.claimSelf;
+  const city = CITIES.find(c => c.id === form.city);
+  return `
+    <div class="field-label">${self ? 'ИМЯ ИЛИ НАЗВАНИЕ' : 'ИМЯ СПЕЦИАЛИСТА ИЛИ НАЗВАНИЕ'}</div>
+    <input class="field-input" type="text" maxlength="100" value="${escapeAttr(form.name)}" placeholder="Например, Марта Й. или «Диалог»" oninput="setFormField('${f}', 'name', this.value)">
+
+    <div class="field-label">ГОРОД</div>
+    <div class="form-row" onclick="pickCityForForm('${f}')">
+      <div class="form-row-label">${city ? escapeAttr(city.label) + (city.country ? ' · ' + countryLabelRu(city.country) : '') : 'Выбрать'}</div>
+      <div class="form-row-value">Изменить ${chevronRight()}</div>
+    </div>
+    <div class="toggle-row" style="padding-top:14px;">
+      <div>
+        <div class="form-row-label">Онлайн или по всей стране</div>
+        <div class="note-text">Анкету увидят во всех городах страны, а не только в выбранном</div>
+      </div>
+      ${toggleHtml(form.worksOnline, `toggleFormFlag('${f}', 'worksOnline')`)}
+    </div>
+
+    <div class="field-label" style="margin-top:6px;">${self ? 'О СЕБЕ' : 'О СПЕЦИАЛИСТЕ'}</div>
+    <textarea class="field-input" maxlength="1500" placeholder="Коротко об опыте и подходе к работе" oninput="setFormField('${f}', 'about', this.value)">${escapeAttr(form.about)}</textarea>
+
+    <div class="field-label">УСЛУГИ</div>
+    ${form.services.map((val, i) => `
+      <div class="service-input-row">
+        <input class="field-input" type="text" maxlength="100" value="${escapeAttr(val)}" placeholder="Например, «Маникюр»" oninput="updateServiceIn('${f}', ${i}, this.value)">
+        ${form.services.length > 1 ? `<button class="remove-btn" aria-label="Убрать" onclick="removeServiceFrom('${f}', ${i})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">${ICONS.xmark}</svg></button>` : ''}
+      </div>
+    `).join('')}
+    ${form.services.length < 20 ? `<button class="add-link-btn" onclick="addServiceTo('${f}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">${ICONS.plus}</svg>Добавить услугу</button>` : ''}
+  `;
+}
+function fieldsContactsHtml(f){
+  const c = formObj(f).contacts;
+  const input = (key, label, placeholder, type) => `
+    <div class="field-label">${label}</div>
+    <input class="field-input" type="${type || 'text'}" value="${escapeAttr(c[key])}" placeholder="${placeholder}" oninput="setFormContact('${f}', '${key}', this.value)">`;
+  return input('telegram', 'TELEGRAM', '@username')
+    + input('instagram', 'INSTAGRAM', '@username')
+    + input('phone', 'ТЕЛЕФОН', '+359 88 123 4567', 'tel')
+    + input('website', 'САЙТ', 'example.bg')
+    + `<div class="note-text" style="margin-top:16px;">Укажите хотя бы один способ связи — остальные можно оставить пустыми.</div>`;
+}
+function fieldsLocationHtml(f){
+  const form = formObj(f);
+  return `
+    <div class="toggle-row">
+      <div class="form-row-label">Есть адрес / место приёма</div>
+      ${toggleHtml(form.hasLocation, `toggleFormFlag('${f}', 'hasLocation')`)}
+    </div>
+    ${form.hasLocation ? `
+      <div class="field-label" style="margin-top:0;">АДРЕС</div>
+      <input class="field-input" type="text" maxlength="200" value="${escapeAttr(form.address)}" placeholder="Например, ул. Витоша 25, София" oninput="setFormField('${f}', 'address', this.value)">
+    ` : `<div class="note-text">Если специалист работает онлайн или выезжает к клиенту, адрес не нужен — блок «Местоположение» в анкете не появится.</div>`}
+  `;
+}
+// Данные формы → поля анкеты для сервера
+function formPayload(form){
+  const contact = (k) => form.contacts[k].trim() || null;
+  return {
+    name: form.name.trim(),
+    about: form.about.trim(),
+    services: form.services.map(s => s.trim()).filter(Boolean),
+    contactsTelegram: contact('telegram'),
+    contactsInstagram: contact('instagram'),
+    contactsPhone: contact('phone'),
+    contactsWebsite: contact('website'),
+    locationAddress: form.hasLocation ? (form.address.trim() || null) : null,
+    cityId: form.city,
+    worksOnline: !!form.worksOnline
   };
 }
-function openAddForm(){ resetAddForm(); closeMenu(); showScreen('add'); renderAddStep(); }
+// Проверка заполнения — одинаковая для добавления и правки
+function formProblem(form, part){
+  if(part === 'info' && !form.name.trim()) return 'Укажите имя или название';
+  if(part === 'info' && !form.city) return 'Выберите город';
+  if(part === 'contacts' && !Object.values(form.contacts).some(v => v.trim())) return 'Укажите хотя бы один способ связи';
+  if(part === 'location' && form.hasLocation && !form.address.trim()) return 'Укажите адрес или отключите переключатель';
+  return null;
+}
+async function uploadPhoto(path, file){
+  const bytes = await file.arrayBuffer();
+  await apiRequest(path, {method: 'POST', headers: {'Content-Type': file.type || 'image/jpeg'}, body: bytes});
+}
 
+/* ---------- добавление анкеты ---------- */
+// Шаги: 1 — кого добавляете, 2 — категория, 3 — о специалисте, 4 — контакты,
+// 5 — адрес, 6 — проверка. Черновик сохраняется на телефоне после каждого изменения.
+const ADD_STEPS = 6;
+const DRAFT_KEY = 'krug_add_draft';
+let addResultNote = '';
+let draftRestored = false;
+function newAddForm(){
+  return {
+    step: 1,
+    claimSelf: null,
+    category: null, subcat: null,
+    name: '', city: currentCity, worksOnline: false, about: '', services: [''],
+    contacts: {telegram:'', instagram:'', phone:'', website:''},
+    hasLocation: false, address: '',
+    photoFile: null, photoPreview: null,
+    dupChecked: ''
+  };
+}
+function saveAddDraft(){
+  if(!addForm || addForm.step === 'success') return;
+  const {photoFile, photoPreview, ...data} = addForm;
+  try { localStorage.setItem(DRAFT_KEY, JSON.stringify(data)); } catch(e){}
+}
+function clearAddDraft(){ try { localStorage.removeItem(DRAFT_KEY); } catch(e){} }
+function readAddDraft(){
+  try {
+    const d = JSON.parse(localStorage.getItem(DRAFT_KEY));
+    if(!d || typeof d !== 'object' || !d.contacts || !Array.isArray(d.services)) return null;
+    return Object.assign(newAddForm(), d, {photoFile: null, photoPreview: null});
+  } catch(e){ return null; }
+}
+function openAddForm(){
+  closeMenu();
+  const draft = readAddDraft();
+  const meaningful = draft && (draft.step > 1 || draft.name || draft.category);
+  addForm = meaningful ? draft : newAddForm();
+  draftRestored = !!meaningful;
+  showScreen('add');
+  renderAddStep();
+}
+function restartAddForm(){
+  clearAddDraft();
+  addForm = newAddForm();
+  draftRestored = false;
+  renderAddStep();
+}
+function chooseAddMode(self){
+  addForm.claimSelf = self;
+  saveAddDraft();
+  renderAddStep();
+}
 function pickCategoryForForm(){
   openPicker('Категория', CATEGORIES.map(c => ({id:c.id, label:c.label})), addForm.category, (id) => {
-    addForm.category = id; addForm.subcat = null; renderAddStep();
+    addForm.category = id; addForm.subcat = null; saveAddDraft(); renderAddStep();
+    pickSubcatForForm();
   });
 }
 function pickSubcatForForm(){
   const cat = CATEGORIES.find(c => c.id === addForm.category);
-  openPicker('Подкатегория', cat.subcats, addForm.subcat, (id) => { addForm.subcat = id; renderAddStep(); });
+  if(!cat) return;
+  openPicker('Подкатегория', cat.subcats, addForm.subcat, (id) => { addForm.subcat = id; saveAddDraft(); renderAddStep(); });
 }
-function pickCityForForm(){
-  openLocationPicker(addForm.city, (id) => { addForm.city = id; renderAddStep(); });
-}
-function updateService(i, val){ addForm.services[i] = val; }
-function addService(){ addForm.services.push(''); renderAddStep(); }
-function removeService(i){ addForm.services.splice(i,1); renderAddStep(); }
-function toggleLocationFlag(){ addForm.hasLocation = !addForm.hasLocation; renderAddStep(); }
 
+function stepModeHtml(){
+  const card = (self, title, text) => `
+    <div class="choice-card ${addForm.claimSelf === self ? 'active' : ''}" onclick="chooseAddMode(${self})">
+      <div class="choice-title">${title}</div>
+      <div class="note-text">${text}</div>
+    </div>`;
+  return `
+    <div class="field-label">КОГО ВЫ ДОБАВЛЯЕТЕ?</div>
+    ${card(true, 'Себя', 'Я специалист и хочу, чтобы меня находили. Анкетой смогу управлять сам.')}
+    ${card(false, 'Советую специалиста', 'Хочу добавить хорошего мастера, врача или другого специалиста, которого знаю.')}
+  `;
+}
 function stepCategoryHtml(){
   const cat = addForm.category ? CATEGORIES.find(c => c.id === addForm.category) : null;
   const sub = (cat && addForm.subcat) ? cat.subcats.find(s => s.id === addForm.subcat) : null;
@@ -1682,212 +2222,191 @@ function stepCategoryHtml(){
     <div class="field-label">КАТЕГОРИЯ И ПОДКАТЕГОРИЯ</div>
     <div class="form-row" onclick="pickCategoryForForm()">
       <div class="form-row-label">Категория</div>
-      <div class="form-row-value">${cat ? cat.label : 'Выбрать'} ${chevronRight()}</div>
+      <div class="form-row-value">${cat ? escapeAttr(cat.label) : 'Выбрать'} ${chevronRight()}</div>
     </div>
     <div class="form-row ${!cat ? 'disabled' : ''}" onclick="${cat ? 'pickSubcatForForm()' : ''}">
       <div class="form-row-label">Подкатегория</div>
-      <div class="form-row-value">${sub ? sub.label : 'Выбрать'} ${chevronRight()}</div>
+      <div class="form-row-value">${sub ? escapeAttr(sub.label) : 'Выбрать'} ${chevronRight()}</div>
     </div>
   `;
 }
 function stepInfoHtml(){
-  return `
-    <div class="field-label">ИМЯ ИЛИ НАЗВАНИЕ</div>
-    <input class="field-input" type="text" value="${escapeAttr(addForm.name)}" placeholder="Например, Марта Й. или «Диалог»" oninput="addForm.name=this.value">
-
-    <div class="field-label">ГОРОД</div>
-    <div class="form-row" onclick="pickCityForForm()">
-      <div class="form-row-label">${CITIES.find(c => c.id === addForm.city).label}</div>
-      <div class="form-row-value">Изменить ${chevronRight()}</div>
-    </div>
-
-    <div class="field-label">ОБО МНЕ</div>
-    <textarea class="field-input" placeholder="Коротко об опыте и подходе к работе" oninput="addForm.about=this.value">${escapeAttr(addForm.about)}</textarea>
-
-    <div class="field-label">УСЛУГИ</div>
-    ${addForm.services.map((val,i) => `
-      <div class="service-input-row">
-        <input class="field-input" type="text" value="${escapeAttr(val)}" placeholder="Например, «Маникюр»" oninput="updateService(${i}, this.value)">
-        ${addForm.services.length > 1 ? `<button class="remove-btn" onclick="removeService(${i})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">${ICONS.xmark}</svg></button>` : ''}
-      </div>
-    `).join('')}
-    <button class="add-link-btn" onclick="addService()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">${ICONS.plus}</svg>Добавить услугу</button>
-  `;
-}
-function claimNoteHtml(){
-  if(!addForm.claimSelf) return '';
-  const tgFilled = addForm.contacts.telegram.trim().length > 0;
-  return tgFilled
-    ? `<div class="note-text">Telegram выше совпадёт с вашим аккаунтом в этом чате — после публикации анкета сразу будет отмечена как подтверждённая, без дополнительных шагов.</div>`
-    : `<div class="note-text">Автоматическое подтверждение работает только через Telegram. Без него анкету можно будет подтвердить позже — уже со страницы опубликованной анкеты.</div>`;
-}
-function toggleClaimSelf(){
-  addForm.claimSelf = !addForm.claimSelf;
-  document.getElementById('claim-toggle').classList.toggle('on', addForm.claimSelf);
-  updateClaimNote();
-}
-function updateClaimNote(){
-  const area = document.getElementById('claim-note-area');
-  if(area) area.innerHTML = claimNoteHtml();
+  return fieldPhotoHtml('addForm') + fieldsInfoHtml('addForm');
 }
 function stepContactsHtml(){
-  return `
-    <div class="field-label">TELEGRAM</div>
-    <input class="field-input" type="text" value="${escapeAttr(addForm.contacts.telegram)}" placeholder="@username" oninput="addForm.contacts.telegram=this.value; updateClaimNote();">
-    <div class="field-label">INSTAGRAM</div>
-    <input class="field-input" type="text" value="${escapeAttr(addForm.contacts.instagram)}" placeholder="@username" oninput="addForm.contacts.instagram=this.value">
-    <div class="field-label">ТЕЛЕФОН</div>
-    <input class="field-input" type="text" value="${escapeAttr(addForm.contacts.phone)}" placeholder="+359 ..." oninput="addForm.contacts.phone=this.value">
-    <div class="field-label">САЙТ</div>
-    <input class="field-input" type="text" value="${escapeAttr(addForm.contacts.website)}" placeholder="example.bg" oninput="addForm.contacts.website=this.value">
-    <div class="note-text" style="margin-top:16px;">Укажите хотя бы один способ связи — остальные можно оставить пустыми.</div>
-
-    <div class="toggle-row" style="margin-top:20px;">
-      <div class="form-row-label">Это анкета обо мне</div>
-      <div class="toggle-switch ${addForm.claimSelf ? 'on' : ''}" id="claim-toggle" onclick="toggleClaimSelf()"><div class="toggle-knob"></div></div>
-    </div>
-    <div id="claim-note-area">${claimNoteHtml()}</div>
-  `;
+  const note = addForm.claimSelf
+    ? `<div class="note-text" style="margin-top:10px;">Если укажете свой Telegram (тот, с которого открыто приложение), анкета сразу будет отмечена как ваша — сможете её редактировать, смотреть статистику и продвигать.</div>`
+    : '';
+  return fieldsContactsHtml('addForm') + note;
 }
-function stepLocationHtml(){
-  return `
-    <div class="toggle-row">
-      <div class="form-row-label">Есть адрес / место приёма</div>
-      <div class="toggle-switch ${addForm.hasLocation ? 'on' : ''}" onclick="toggleLocationFlag()"><div class="toggle-knob"></div></div>
-    </div>
-    ${addForm.hasLocation ? `
-      <div class="field-label">АДРЕС</div>
-      <input class="field-input" type="text" value="${escapeAttr(addForm.address)}" placeholder="Например, ул. Витоша 25, София" oninput="addForm.address=this.value">
-    ` : `<div class="note-text">Например, специалист работает онлайн или выезжает к клиенту. Блок «Местоположение» в карточке показан не будет.</div>`}
-  `;
-}
+function stepLocationHtml(){ return fieldsLocationHtml('addForm'); }
 function stepReviewHtml(){
   const cat = CATEGORIES.find(c => c.id === addForm.category);
-  const sub = cat.subcats.find(s => s.id === addForm.subcat);
+  const sub = cat ? cat.subcats.find(s => s.id === addForm.subcat) : null;
+  const city = CITIES.find(c => c.id === addForm.city);
   const filledContacts = CONTACT_ORDER.filter(t => addForm.contacts[t].trim());
+  const row = (label, value) => `<div class="review-row"><span class="review-row-label">${label}</span><span class="review-row-value">${value}</span></div>`;
   return `
     <div class="field-label">ПРОВЕРЬТЕ ДАННЫЕ</div>
     <div class="review-block">
-      <div class="review-row"><span class="review-row-label">Категория</span><span class="review-row-value">${cat.label} → ${sub.label}</span></div>
-      <div class="review-row"><span class="review-row-label">Имя</span><span class="review-row-value">${escapeAttr(addForm.name) || '—'}</span></div>
-      <div class="review-row"><span class="review-row-label">Город</span><span class="review-row-value">${CITIES.find(c => c.id === addForm.city).label}</span></div>
-      <div class="review-row"><span class="review-row-label">Услуги</span><span class="review-row-value">${escapeAttr(addForm.services.filter(s => s.trim()).join(', ')) || '—'}</span></div>
-      <div class="review-row"><span class="review-row-label">Контакты</span><span class="review-row-value">${filledContacts.map(t => CONTACT_LABELS[t]).join(', ') || '—'}</span></div>
-      <div class="review-row"><span class="review-row-label">Адрес</span><span class="review-row-value">${addForm.hasLocation ? (escapeAttr(addForm.address) || '—') : 'Без адреса'}</span></div>
-      <div class="review-row"><span class="review-row-label">Подтверждение</span><span class="review-row-value">${addForm.claimSelf ? (addForm.contacts.telegram.trim() ? 'Проверим автоматически по Telegram' : 'Без Telegram — проверит модератор') : 'Не заявлено'}</span></div>
+      ${row('Кого добавляете', addForm.claimSelf ? 'Себя' : 'Советую специалиста')}
+      ${row('Категория', cat && sub ? escapeAttr(cat.label) + ' → ' + escapeAttr(sub.label) : '—')}
+      ${row('Имя', escapeAttr(addForm.name) || '—')}
+      ${row('Город', city ? escapeAttr(city.label) + (addForm.worksOnline ? ' · онлайн по стране' : '') : '—')}
+      ${row('Фото', addForm.photoFile ? 'Добавлено' : 'Без фото')}
+      ${row('Услуги', escapeAttr(addForm.services.filter(s => s.trim()).join(', ')) || '—')}
+      ${row('Контакты', filledContacts.map(t => CONTACT_LABELS[t]).join(', ') || '—')}
+      ${row('Адрес', addForm.hasLocation ? (escapeAttr(addForm.address) || '—') : 'Без адреса')}
     </div>
     <div class="note-text">После отправки анкета попадёт на проверку модератору. Обычно это занимает меньше суток.</div>
   `;
 }
 function stepSuccessHtml(){
-  let claimNote = '';
-  if(addForm.claimSelf){
-    claimNote = claimResultMessage
-      ? ` ${claimResultMessage}`
-      : ' Так как Telegram совпадает с вашим аккаунтом, анкета сразу отмечена как подтверждённая.';
-  }
   return `<div class="success-wrap">
     <div class="success-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${CHECK}</svg></div>
     <div class="success-title">Анкета отправлена</div>
-    <div class="success-text">Мы проверим её и опубликуем в каталоге. Обычно это занимает меньше суток.${claimNote}</div>
+    <div class="success-text">Мы проверим её и опубликуем в каталоге. Обычно это занимает меньше суток — бот сообщит вам о результате.${addResultNote ? ' ' + escapeAttr(addResultNote) : ''}</div>
   </div>`;
 }
 
 function renderAddStep(){
   const content = document.getElementById('add-step-content');
-  if(addForm.step === 1) content.innerHTML = stepCategoryHtml();
-  else if(addForm.step === 2) content.innerHTML = stepInfoHtml();
-  else if(addForm.step === 3) content.innerHTML = stepContactsHtml();
-  else if(addForm.step === 4) content.innerHTML = stepLocationHtml();
-  else if(addForm.step === 5) content.innerHTML = stepReviewHtml();
-  else if(addForm.step === 'success') content.innerHTML = stepSuccessHtml();
+  const step = addForm.step;
+  const draftNote = draftRestored && step !== 'success'
+    ? `<div class="draft-note"><span>Продолжаем с черновика${addForm.photoFile ? '' : ' (фото нужно выбрать заново)'}</span><button onclick="restartAddForm()">Начать заново</button></div>`
+    : '';
+  const html = step === 1 ? stepModeHtml()
+    : step === 2 ? stepCategoryHtml()
+    : step === 3 ? stepInfoHtml()
+    : step === 4 ? stepContactsHtml()
+    : step === 5 ? stepLocationHtml()
+    : step === 6 ? stepReviewHtml()
+    : stepSuccessHtml();
+  content.innerHTML = draftNote + html;
 
-  document.getElementById('add-step-label').textContent = (addForm.step === 'success') ? '' : `ШАГ ${addForm.step} ИЗ 5`;
-  document.getElementById('add-progress').style.display = (addForm.step === 'success') ? 'none' : 'flex';
-  if(addForm.step !== 'success'){
-    document.getElementById('add-progress').innerHTML = [1,2,3,4,5].map(n => `<div class="progress-dot ${n <= addForm.step ? 'active' : ''}"></div>`).join('');
+  const done = step === 'success';
+  document.getElementById('add-step-label').textContent = done ? '' : `ШАГ ${step} ИЗ ${ADD_STEPS}`;
+  const progress = document.getElementById('add-progress');
+  progress.style.display = done ? 'none' : 'flex';
+  if(!done){
+    progress.innerHTML = Array.from({length: ADD_STEPS}, (_, i) => `<div class="progress-dot ${i + 1 <= step ? 'active' : ''}"></div>`).join('');
   }
-
   const bar = document.getElementById('add-bottom-bar');
-  if(addForm.step === 'success'){
+  if(done){
     bar.innerHTML = `<button class="btn-full" onclick="goHome()">На главную</button>`;
   } else {
-    const label = addForm.step === 5 ? 'Отправить на проверку' : 'Далее';
-    bar.innerHTML = `<button class="btn-full" onclick="nextAddStep()">${label}</button>`;
+    const label = step === ADD_STEPS ? 'Отправить на проверку' : 'Далее';
+    bar.innerHTML = `<button class="btn-full" id="add-next-btn" onclick="nextAddStep()">${label}</button>`;
   }
 }
 
-async function createSubmissionFromForm(){
-  const cat = CATEGORIES.find(c => c.id === addForm.category);
-  const sub = cat.subcats.find(s => s.id === addForm.subcat);
-  const contacts = {};
-  CONTACT_ORDER.forEach(t => { if(addForm.contacts[t].trim()) contacts[t] = addForm.contacts[t].trim(); });
+// Есть ли уже такой специалист в каталоге (по Telegram, Instagram, телефону, сайту)
+async function findDuplicates(){
+  const key = JSON.stringify(addForm.contacts);
+  if(addForm.dupChecked === key) return [];
+  try {
+    const payload = formPayload(addForm);
+    const found = await apiRequest('/api/specialists/check-duplicates', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        contactsTelegram: payload.contactsTelegram, contactsInstagram: payload.contactsInstagram,
+        contactsPhone: payload.contactsPhone, contactsWebsite: payload.contactsWebsite
+      })
+    });
+    addForm.dupChecked = key;
+    return listFromApi(found);
+  } catch(e){
+    return []; // проверка не обязательна — не мешаем подать анкету
+  }
+}
+function showDupSheet(specs){
+  document.getElementById('dup-content').innerHTML = `
+    <div class="note-text" style="margin-bottom:14px;">В каталоге уже есть анкета с такими же контактами. Возможно, это тот же специалист — тогда новая анкета не нужна.</div>
+    ${specs.map(s => renderSpecialistCard(s, 'add')).join('')}
+    <button class="btn-full" onclick="closeDupSheet(); addForm.step++; saveAddDraft(); renderAddStep();">Это другой специалист — продолжить</button>
+  `;
+  document.getElementById('dupSheet').classList.add('open');
+  document.getElementById('dupOverlay').classList.add('open');
+}
+function closeDupSheet(){
+  document.getElementById('dupSheet').classList.remove('open');
+  document.getElementById('dupOverlay').classList.remove('open');
+}
 
-  const created = await apiRequest('/api/specialists', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({
-      name: addForm.name.trim(),
-      role: sub.label,
-      about: addForm.about.trim(),
-      services: addForm.services.map(s => s.trim()).filter(Boolean),
-      contactsTelegram: contacts.telegram || null,
-      contactsInstagram: contacts.instagram || null,
-      contactsPhone: contacts.phone || null,
-      contactsWebsite: contacts.website || null,
-      locationAddress: addForm.hasLocation ? addForm.address.trim() : null,
-      cityId: addForm.city,
-      categoryId: addForm.category,
-      subcategoryId: addForm.subcat
-    })
-  });
+let addSubmitting = false;
+async function nextAddStep(){
+  if(addSubmitting) return;
+  const step = addForm.step;
+  if(step === 1 && addForm.claimSelf === null){ showToast('Выберите, кого вы добавляете'); return; }
+  if(step === 2 && (!addForm.category || !addForm.subcat)){ showToast('Выберите категорию и подкатегорию'); return; }
+  const problem = formProblem(addForm, step === 3 ? 'info' : step === 4 ? 'contacts' : step === 5 ? 'location' : '');
+  if(problem){ showToast(problem); return; }
+  draftRestored = false;
+  if(step === 4){
+    addSubmitting = true;
+    const btn = document.getElementById('add-next-btn');
+    if(btn) btn.innerHTML = '<span class="spinner" style="width:18px; height:18px; border-color:var(--muted); border-top-color:var(--paper);"></span>';
+    const dups = await findDuplicates();
+    addSubmitting = false;
+    if(dups.length){ renderAddStep(); showDupSheet(dups); return; }
+  }
+  if(step === ADD_STEPS){
+    await submitAddForm();
+    return;
+  }
+  addForm.step++;
+  saveAddDraft();
+  renderAddStep();
+  document.getElementById('screen-add').scrollTop = 0;
+}
 
-  const spec = mapApiSpecialist(created);
-  ALL_SPECIALISTS[spec.id] = spec;
-  ensureBotWriteAccess();
+async function submitAddForm(){
+  if(!tgInitData){ showToast('Добавить анкету можно только в приложении внутри Telegram'); return; }
+  addSubmitting = true;
+  const btn = document.getElementById('add-next-btn');
+  if(btn) btn.innerHTML = '<span class="spinner" style="width:18px; height:18px; border-color:var(--muted); border-top-color:var(--paper);"></span>';
+  try {
+    const sub = CATEGORIES.find(c => c.id === addForm.category).subcats.find(s => s.id === addForm.subcat);
+    const created = await apiRequest('/api/specialists', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(Object.assign(formPayload(addForm), {
+        role: sub.label, categoryId: addForm.category, subcategoryId: addForm.subcat
+      }))
+    });
+    const spec = mapApiSpecialist(created);
+    ALL_SPECIALISTS[spec.id] = spec;
+    ensureBotWriteAccess();
+    addResultNote = '';
 
-  // Если человек отметил «это моя анкета» — сразу пробуем подтвердить по-настоящему
-  // тем же способом, что и на опубликованной карточке (сверка по Telegram-аккаунту на сервере).
-  claimResultMessage = null;
-  if(addForm.claimSelf){
-    if(!tgInitData){
-      claimResultMessage = 'Автоматическое подтверждение доступно только при открытии приложения через Telegram — откройте его через кнопку меню бота.';
-    } else {
+    if(addForm.photoFile){
+      try { await uploadPhoto(`/api/me/specialists/${spec.id}/submission-photo`, addForm.photoFile); }
+      catch(e){ addResultNote = 'Фото загрузить не удалось — его можно будет добавить позже.'; }
+    }
+    // «Это я» — сразу пробуем подтвердить по Telegram-аккаунту
+    if(addForm.claimSelf){
       try {
         const result = await apiRequest(`/api/me/specialists/${spec.id}/claim`, {method: 'POST'});
         if(result.verified){
           spec.verified = true;
           MY_LISTING_IDS.add(spec.id);
+          addResultNote += (addResultNote ? ' ' : '') + 'Анкета отмечена как ваша — после публикации сможете её редактировать и продвигать в «Мои услуги».';
         } else {
-          claimResultMessage = result.message || 'Автоматическая проверка не прошла — анкету проверит модератор вручную.';
+          addResultNote += (addResultNote ? ' ' : '') + 'Чтобы управлять анкетой, подтвердите, что она ваша, — в «Мои услуги».';
         }
-      } catch(e){
-        claimResultMessage = 'Не удалось проверить владение анкетой автоматически — модератор проверит её вручную.';
-      }
+      } catch(e){ /* подтвердить можно позже из кабинета */ }
     }
+    clearAddDraft();
+    if(addForm.photoPreview) URL.revokeObjectURL(addForm.photoPreview);
+    addForm.step = 'success';
+    renderAddStep();
+    haptic('medium');
+  } catch(e) {
+    showToast(e.message && !/^Ошибка сервера/.test(e.message) ? e.message : 'Не удалось отправить анкету. Проверьте подключение и попробуйте ещё раз.');
+    renderAddStep();
+  } finally {
+    addSubmitting = false;
   }
-  return spec;
-}
-function backAddStep(){
-  if(addForm.step === 'success' || addForm.step === 1){ showScreen('home'); return; }
-  addForm.step--; renderAddStep();
-}
-async function nextAddStep(){
-  if(addForm.step === 1 && (!addForm.category || !addForm.subcat)){ showToast('Выберите категорию и подкатегорию'); return; }
-  if(addForm.step === 2 && !addForm.name.trim()){ showToast('Укажите имя или название'); return; }
-  if(addForm.step === 3 && !Object.values(addForm.contacts).some(v => v.trim())){ showToast('Укажите хотя бы один способ связи'); return; }
-  if(addForm.step === 4 && addForm.hasLocation && !addForm.address.trim()){ showToast('Укажите адрес или отключите переключатель'); return; }
-  if(addForm.step === 5){
-    try {
-      await createSubmissionFromForm();
-      addForm.step = 'success';
-      renderAddStep();
-    } catch(e) {
-      showToast('Не удалось отправить анкету. Проверьте подключение и попробуйте ещё раз.');
-    }
-    return;
-  }
-  addForm.step++; renderAddStep();
 }
 
 /* ---------- toast ---------- */
@@ -1919,7 +2438,7 @@ async function openCabinet(){
   renderCabinetScreen();
 }
 
-// Подгружает актуальный список анкет владельца с сервера (включая статус и одобрение админом)
+// Подгружает актуальный список анкет владельца с сервера (статус, правки, сроки PRO/буста)
 async function loadMyListingsFromServer(){
   if(!tgInitData){
     document.getElementById('cabinet-items').innerHTML = `<div class="empty-state">
@@ -1927,9 +2446,9 @@ async function loadMyListingsFromServer(){
         <div class="empty-title">Доступно только в Telegram</div>
         <div class="empty-text">Откройте приложение через кнопку меню бота, чтобы увидеть свои анкеты.</div>
       </div>`;
-    return;
+    return false;
   }
-  document.getElementById('cabinet-items').innerHTML = LOADER_HTML;
+  if(!MY_LISTING_IDS.size) document.getElementById('cabinet-items').innerHTML = LOADER_HTML;
   try {
     const mine = await apiRequest('/api/me/specialists');
     MY_LISTING_IDS = new Set();
@@ -1938,15 +2457,30 @@ async function loadMyListingsFromServer(){
       ALL_SPECIALISTS[spec.id] = spec;
       MY_LISTING_IDS.add(spec.id);
     });
+    return true;
   } catch(e){
     console.error(e);
     showToast('Не удалось загрузить ваши анкеты');
+    return false;
   }
+}
+function shortDay(iso){
+  if(!iso) return '';
+  return new Date(iso).toLocaleDateString('ru-RU', {day: 'numeric', month: 'long'});
 }
 function statusChipHtml(s){
   if(s.status === 'pending') return `<span class="status-chip">На проверке</span>`;
   if(s.status === 'rejected') return `<span class="status-chip rejected">Отклонено</span>`;
-  return `<span class="status-chip published">Опубликовано</span>`;
+  return `<span class="status-chip published">Опубликовано</span>`
+    + (s.hasPendingChanges ? ` <span class="status-chip">Правки на проверке</span>` : '');
+}
+function proButtonLabel(s){
+  if(!s.pro) return 'Оформить PRO';
+  return s.proRecurring ? 'PRO · продлевается' : 'PRO до ' + shortDay(s.proExpiresAt);
+}
+function boostButtonLabel(s){
+  if(s.boosted) return 'Буст до ' + shortDay(s.boostedUntil);
+  return s.trialBoostAvailable ? 'Буст — 3 дня бесплатно' : 'Забустить';
 }
 function cabinetCardHtml(s){
   const clickable = s.status === 'published';
@@ -1962,10 +2496,12 @@ function cabinetCardHtml(s){
           ${s.pro ? `<span class="pro-chip">PRO</span>` : ''}
         </div>
         <div class="spec-role">${escapeAttr(s.role)}</div>
+        ${s.recommendCount ? `<div class="card-meta">${escapeAttr(recommendText(s.recommendCount))}</div>` : ''}
       </div>
     </div>
     <div style="margin-top:10px;">${statusChipHtml(s)}</div>
-    ${s.status === 'rejected' ? `<div class="note-text" style="margin-top:8px;">Причина: ${escapeAttr(s.rejectionReason)}</div>` : ''}
+    ${s.status === 'rejected' ? `<div class="note-text" style="margin-top:8px;">Причина: ${escapeAttr(s.rejectionReason)}${s.verified ? ' Исправьте анкету — она снова уйдёт на проверку.' : ''}</div>` : ''}
+    ${s.hasPendingChanges ? `<div class="note-text" style="margin-top:8px;">Пока правки проверяются, в каталоге показывается прежняя версия анкеты.</div>` : ''}
     ${s.editRejectionReason ? `
       <div class="note-text" style="margin-top:8px;">
         Ваши последние изменения отклонены модератором. Причина: ${escapeAttr(s.editRejectionReason)}
@@ -1980,8 +2516,8 @@ function cabinetCardHtml(s){
     ` : ''}
     ${s.verified && s.status === 'published' ? `
       <div class="cabinet-actions">
-        <button class="subcat-chip" onclick="openMoneySheet(${s.id}, 'pro')">${s.pro ? 'PRO подключён' : 'Оформить PRO'}</button>
-        <button class="subcat-chip" onclick="openMoneySheet(${s.id}, 'boost')">${s.boosted ? 'Буст активен' : 'Забустить'}</button>
+        <button class="subcat-chip" onclick="openMoneySheet(${s.id}, 'pro')">${proButtonLabel(s)}</button>
+        <button class="subcat-chip" onclick="openMoneySheet(${s.id}, 'boost')">${boostButtonLabel(s)}</button>
       </div>
       <div class="cabinet-actions" style="margin-top:8px;">
         <button class="subcat-chip" onclick="openOwnStatsSheet(${s.id})">📊 Статистика</button>
@@ -1990,7 +2526,7 @@ function cabinetCardHtml(s){
     ${s.verified ? `
       <div class="cabinet-actions" style="margin-top:8px;">
         <button class="subcat-chip" onclick="openEditOwnSheet(${s.id})">Редактировать</button>
-        <button class="subcat-chip" onclick="deleteOwnListing(${s.id})" style="color:#c0392b; border-color:#c0392b;">Удалить</button>
+        <button class="subcat-chip" onclick="deleteOwnListing(${s.id})" style="color:var(--danger); border-color:var(--danger);">Удалить</button>
       </div>
     ` : ''}
   </div>`;
@@ -2018,11 +2554,18 @@ function renderCabinetScreen(){
 }
 
 /* ---------- владелец: редактирование/удаление своей анкеты ---------- */
-let editOwnId = null;
-let editOwnPhotoFile = null;
-
+function confirmDialog(text){
+  return new Promise(resolve => {
+    if(tg && tg.showConfirm && (!tg.isVersionAtLeast || tg.isVersionAtLeast('6.2'))){
+      try { tg.showConfirm(text, ok => resolve(!!ok)); return; } catch(e){}
+    }
+    resolve(window.confirm(text));
+  });
+}
 async function deleteOwnListing(id){
-  if(!confirm('Удалить анкету безвозвратно? Отменить это будет нельзя.')) return;
+  const s = ALL_SPECIALISTS[id];
+  const extra = s && s.pro && s.proRecurring ? ' Подписка PRO тоже будет отменена.' : '';
+  if(!await confirmDialog('Удалить анкету безвозвратно? Отменить это будет нельзя.' + extra)) return;
   try {
     await apiRequest(`/api/me/specialists/${id}`, {method: 'DELETE'});
     MY_LISTING_IDS.delete(id);
@@ -2034,11 +2577,36 @@ async function deleteOwnListing(id){
   }
 }
 
+// Форма правки — те же поля, что и при добавлении. Если правки уже ждут проверки,
+// форма показывает их (а не старую версию), чтобы человек продолжил с того же места.
 function openEditOwnSheet(id){
-  editOwnId = id;
-  editOwnPhotoFile = null;
-  const s = ALL_SPECIALISTS[id];
-  document.getElementById('edit-own-content').innerHTML = editOwnFormHtml(s);
+  const base = ALL_SPECIALISTS[id];
+  if(!base) return;
+  const pc = base.pendingChanges || {};
+  const val = (key, fallback) => (key in pc ? pc[key] : fallback);
+  const services = val('services', base.services) || [];
+  const address = val('locationAddress', base.location ? base.location.address : null);
+  editForm = {
+    id,
+    pro: base.pro,
+    name: val('name', base.name) || '',
+    city: val('cityId', base.cityId),
+    worksOnline: !!val('worksOnline', base.worksOnline),
+    about: val('about', base.about) || '',
+    services: services.length ? services.slice() : [''],
+    contacts: {
+      telegram: val('contactsTelegram', base.contacts.telegram) || '',
+      instagram: val('contactsInstagram', base.contacts.instagram) || '',
+      phone: val('contactsPhone', base.contacts.phone) || '',
+      website: val('contactsWebsite', base.contacts.website) || ''
+    },
+    hasLocation: !!address,
+    address: address || '',
+    extraSubcategories: (val('extraSubcategories', base.extraSubcategories) || []).slice(),
+    photoFile: null, photoPreview: null
+  };
+  editForm.original = JSON.stringify(editPayload(editForm));
+  renderEditOwnSheet();
   document.getElementById('editOwnSheet').classList.add('open');
   document.getElementById('editOwnOverlay').classList.add('open');
 }
@@ -2046,73 +2614,105 @@ function closeEditOwnSheet(){
   document.getElementById('editOwnSheet').classList.remove('open');
   document.getElementById('editOwnOverlay').classList.remove('open');
 }
-function editOwnFormHtml(s){
-  return `
-    <div class="note-text">Правки уходят на проверку модератору — пока их не одобрят, в общем каталоге показывается прежняя версия анкеты.</div>
-    <div class="field-label">ФОТО</div>
-    <div style="display:flex; align-items:center; gap:14px; margin-bottom:6px;">
-      <div class="avatar" style="width:64px; height:64px; flex-shrink:0;">${avatarHtml(s)}</div>
-      <input type="file" accept="image/*" id="eo-photo" onchange="editOwnPhotoFile=this.files[0]">
-    </div>
-    <div class="field-label">ИМЯ ИЛИ НАЗВАНИЕ</div>
-    <input class="field-input" type="text" id="eo-name" value="${escapeAttr(s.name)}">
-    <div class="field-label">ГОРОД</div>
-    <select class="field-input" id="eo-city">
-      ${CITIES.map(c => `<option value="${c.id}" ${c.id===s.cityId?'selected':''}>${c.label}${c.country ? ' · ' + countryLabelRu(c.country) : ''}</option>`).join('')}
-    </select>
-    <div class="field-label">ОБО МНЕ</div>
-    <textarea class="field-input" id="eo-about" style="min-height:70px;">${escapeAttr(s.about)}</textarea>
-    <div class="field-label">УСЛУГИ (через запятую)</div>
-    <input class="field-input" id="eo-services" value="${escapeAttr(s.services.join(', '))}">
-    <div class="field-label">TELEGRAM</div>
-    <input class="field-input" id="eo-telegram" value="${escapeAttr(s.contacts.telegram)}">
-    <div class="field-label">ТЕЛЕФОН</div>
-    <input class="field-input" id="eo-phone" value="${escapeAttr(s.contacts.phone)}">
-    <div class="field-label">INSTAGRAM</div>
-    <input class="field-input" id="eo-instagram" value="${escapeAttr(s.contacts.instagram)}">
-    <div class="field-label">САЙТ</div>
-    <input class="field-input" id="eo-website" value="${escapeAttr(s.contacts.website)}">
-    <div class="field-label">АДРЕС</div>
-    <input class="field-input" id="eo-address" value="${escapeAttr(s.location ? s.location.address : '')}">
-    <button class="btn-full" style="margin-top:20px;" onclick="saveEditOwnForm()">Отправить на проверку</button>
-  `;
+function editPayload(form){
+  const p = formPayload(form);
+  if(form.pro) p.extraSubcategories = form.extraSubcategories;
+  return p;
 }
+function subcatLabel(subId){
+  for(const cat of CATEGORIES){
+    const sub = cat.subcats.find(s => s.id === subId);
+    if(sub) return sub.label;
+  }
+  return subId;
+}
+function extraSubcatsHtml(){
+  const base = ALL_SPECIALISTS[editForm.id];
+  if(!editForm.pro){
+    return `
+      <div class="field-label">ДОПОЛНИТЕЛЬНЫЕ ПОДКАТЕГОРИИ</div>
+      <div class="note-text">С PRO анкету можно показывать и в других подкатегориях — например, «Маникюр» и «Брови/Ресницы».</div>`;
+  }
+  return `
+    <div class="field-label">ДОПОЛНИТЕЛЬНЫЕ ПОДКАТЕГОРИИ · PRO</div>
+    <div class="note-text" style="margin-bottom:10px;">Основная: ${escapeAttr(subcatLabel(base.subcatId))}. Анкета будет показываться и в выбранных ниже, пока активен PRO.</div>
+    <div class="chip-list">
+      ${editForm.extraSubcategories.map(id => `
+        <span class="chip-removable">${escapeAttr(subcatLabel(id))}
+          <button aria-label="Убрать" onclick="removeExtraSubcat('${id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">${ICONS.xmark}</svg></button>
+        </span>`).join('')}
+    </div>
+    <button class="add-link-btn" onclick="addExtraSubcat()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">${ICONS.plus}</svg>Добавить подкатегорию</button>`;
+}
+function addExtraSubcat(){
+  openPicker('Категория', CATEGORIES.map(c => ({id: c.id, label: c.label})), null, (catId) => {
+    const cat = CATEGORIES.find(c => c.id === catId);
+    const base = ALL_SPECIALISTS[editForm.id];
+    const options = cat.subcats.filter(s => s.id !== base.subcatId && !editForm.extraSubcategories.includes(s.id));
+    if(!options.length){ showToast('В этой категории всё уже выбрано'); return; }
+    setTimeout(() => openPicker(cat.label, options, null, (subId) => {
+      editForm.extraSubcategories.push(subId);
+      renderEditOwnSheet();
+    }), 0);
+  });
+}
+function removeExtraSubcat(id){
+  editForm.extraSubcategories = editForm.extraSubcategories.filter(x => x !== id);
+  renderEditOwnSheet();
+}
+function renderEditOwnSheet(){
+  const box = document.getElementById('edit-own-content');
+  const scroll = document.getElementById('editOwnSheet').scrollTop;
+  const base = ALL_SPECIALISTS[editForm.id];
+  box.innerHTML = `
+    <div class="note-text">Правки уходят на проверку модератору — пока их проверяют, в каталоге показывается прежняя версия анкеты.</div>
+    ${fieldPhotoHtml('editForm', avatarHtml(base))}
+    ${fieldsInfoHtml('editForm')}
+    ${extraSubcatsHtml()}
+    <div class="field-label" style="margin-top:26px;">КОНТАКТЫ</div>
+    ${fieldsContactsHtml('editForm')}
+    <div style="margin-top:20px;">${fieldsLocationHtml('editForm')}</div>
+    <button class="btn-full" id="edit-save-btn" style="margin-top:20px;" onclick="saveEditOwnForm()">Отправить на проверку</button>
+  `;
+  document.getElementById('editOwnSheet').scrollTop = scroll;
+}
+let editSaving = false;
 async function saveEditOwnForm(){
-  const payload = {
-    name: document.getElementById('eo-name').value.trim(),
-    cityId: document.getElementById('eo-city').value,
-    about: document.getElementById('eo-about').value.trim(),
-    services: document.getElementById('eo-services').value.split(',').map(s=>s.trim()).filter(Boolean),
-    contactsTelegram: document.getElementById('eo-telegram').value.trim() || null,
-    contactsPhone: document.getElementById('eo-phone').value.trim() || null,
-    contactsInstagram: document.getElementById('eo-instagram').value.trim() || null,
-    contactsWebsite: document.getElementById('eo-website').value.trim() || null,
-    locationAddress: document.getElementById('eo-address').value.trim() || null,
-  };
-  if(!payload.name){ showToast('Укажите имя или название'); return; }
+  if(editSaving) return;
+  const problem = formProblem(editForm, 'info') || formProblem(editForm, 'contacts') || formProblem(editForm, 'location');
+  if(problem){ showToast(problem); return; }
+  const payload = editPayload(editForm);
+  const changed = JSON.stringify(payload) !== editForm.original;
+  if(!changed && !editForm.photoFile){ showToast('Вы ничего не изменили'); return; }
+  editSaving = true;
+  const btn = document.getElementById('edit-save-btn');
+  if(btn) btn.innerHTML = '<span class="spinner" style="width:18px; height:18px; border-color:var(--muted); border-top-color:var(--paper);"></span>';
   try {
-    await apiRequest(`/api/me/specialists/${editOwnId}`, {
-      method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload)
-    });
-    if(editOwnPhotoFile){
-      const bytes = await editOwnPhotoFile.arrayBuffer();
-      await apiRequest(`/api/me/specialists/${editOwnId}/photo`, {
-        method: 'POST', headers: {'Content-Type': editOwnPhotoFile.type || 'image/jpeg'}, body: bytes
+    if(changed){
+      await apiRequest(`/api/me/specialists/${editForm.id}`, {
+        method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload)
       });
     }
+    if(editForm.photoFile){
+      await uploadPhoto(`/api/me/specialists/${editForm.id}/photo`, editForm.photoFile);
+    }
+    if(editForm.photoPreview) URL.revokeObjectURL(editForm.photoPreview);
     closeEditOwnSheet();
     showToast('Правки отправлены на проверку');
     await loadMyListingsFromServer();
     renderCabinetScreen();
   } catch(e){
     showToast('Не удалось сохранить: ' + e.message);
+    if(btn) btn.textContent = 'Отправить на проверку';
+  } finally {
+    editSaving = false;
   }
 }
 
 /* ---------- PRO / Boost purchase ---------- */
 /* ---------- статистика своей анкеты ---------- */
 const CONTACT_STAT_LABELS = {telegram:'Telegram', phone:'Телефон', instagram:'Instagram', website:'Сайт', map:'Адрес на карте'};
-const VIEW_SOURCE_LABELS = {catalog:'Из каталога', search:'Из поиска', favorites:'Из избранного', share:'По ссылке «поделиться»', ref:'Из рекламы КРУГ', other:'Другое', unknown:'Другое'};
+const VIEW_SOURCE_LABELS = {catalog:'Из каталога', search:'Из поиска', favorites:'Из избранного', share:'По ссылке «поделиться»', ref:'Из рекламы КРУГ', home:'С главной', other:'Другое', unknown:'Другое'};
 async function openOwnStatsSheet(id){
   const content = document.getElementById('own-stats-content');
   content.innerHTML = LOADER_HTML;
@@ -2210,30 +2810,66 @@ function closeMoneySheet(){
   document.getElementById('moneySheet').classList.remove('open');
   document.getElementById('moneyOverlay').classList.remove('open');
 }
+function benefitRow(text){
+  return `<div class="benefit-row"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${CHECK}</svg>${text}</div>`;
+}
 function renderMoneySheet(){
   const content = document.getElementById('money-content');
+  const spec = ALL_SPECIALISTS[moneySpecId];
+  if(!spec) return;
   if(moneyType === 'pro'){
+    let action;
+    if(spec.pro && spec.proRecurring){
+      action = `<div class="note-text">PRO подключён и продлевается автоматически — следующее продление ${shortDay(spec.proExpiresAt)}. Отменить подписку можно в Telegram: Настройки → Мои звёзды.</div>`;
+    } else {
+      action = spec.pro
+        ? `<div class="note-text" style="margin-bottom:12px;">PRO действует до ${shortDay(spec.proExpiresAt)}. Продление добавит ещё месяц к этому сроку — дни не сгорят.</div>
+           <button class="btn-full" onclick="confirmPro()">Продлить на месяц за ${PRO_PRICE} ⭐</button>`
+        : `<button class="btn-full" onclick="confirmPro()">Оформить за ${PRO_PRICE} ⭐ в месяц</button>
+           <div class="note-text" style="margin-top:10px; text-align:center;">Продлевается автоматически. Отменить можно в любой момент в Telegram.</div>`;
+    }
     content.innerHTML = `
-      <div class="benefit-row"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${CHECK}</svg>Приоритет выше обычных анкет</div>
-      <div class="benefit-row"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${CHECK}</svg>Бейдж «PRO» у имени</div>
-      <div class="benefit-row"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${CHECK}</svg>Размещение в неограниченном числе подкатегорий</div>
-      <div class="benefit-row"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${CHECK}</svg>Приоритет при модерации</div>
-      <div class="benefit-row"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${CHECK}</svg>Полная статистика анкеты: контакты, источники, избранное</div>
-      <div class="price-row"><span>Ежемесячно</span><span>${PRO_PRICE} ⭐</span></div>
-      <button class="btn-full" onclick="confirmPro()">Оформить за ${PRO_PRICE} Stars</button>
+      ${benefitRow('Анкета выше обычных в списках и в поиске через бота')}
+      ${benefitRow('Бейдж «PRO» у имени')}
+      ${benefitRow('Показ в дополнительных подкатегориях — сколько нужно')}
+      ${benefitRow('Приоритетная проверка анкеты и правок')}
+      ${benefitRow('Полная статистика: контакты, откуда смотрят, избранное')}
+      <div class="price-row"><span>Подписка, в месяц</span><span>${PRO_PRICE} ⭐</span></div>
+      ${action}
     `;
   } else {
+    const active = spec.boosted
+      ? `<div class="note-text" style="margin-bottom:14px;">Буст активен до ${shortDay(spec.boostedUntil)}. Новая покупка продлит его — дни не сгорят.</div>`
+      : '';
+    const trial = !spec.boosted && spec.trialBoostAvailable
+      ? `<button class="btn-full" style="margin-bottom:12px;" onclick="startTrialBoost()">Попробовать бесплатно — 3 дня</button>
+         <div class="note-text" style="margin-bottom:16px; text-align:center;">Один раз для каждой анкеты. Потом — по желанию за звёзды.</div>`
+      : '';
     content.innerHTML = `
-      <div class="note-text" style="margin-bottom:14px;">Поднимает анкету в топ подкатегории на выбранный срок. Пока буст активен, открыта и полная статистика анкеты.</div>
+      <div class="note-text" style="margin-bottom:14px;">Поднимает анкету в начало списка своей подкатегории на выбранный срок. Пока буст активен, открыта и полная статистика анкеты.</div>
+      ${active}${trial}
       <div class="duration-row">
         <div class="duration-option ${selectedBoostDays === 7 ? 'active' : ''}" onclick="selectBoostDays(7)"><div class="d-label">7 дней</div><div class="d-price">${BOOST_PRICES[7]} ⭐</div></div>
         <div class="duration-option ${selectedBoostDays === 30 ? 'active' : ''}" onclick="selectBoostDays(30)"><div class="d-label">30 дней</div><div class="d-price">${BOOST_PRICES[30]} ⭐</div></div>
       </div>
-      <button class="btn-full" onclick="confirmBoost()">Забустить за ${BOOST_PRICES[selectedBoostDays]} Stars</button>
+      <button class="btn-full" onclick="confirmBoost()">${spec.boosted ? 'Продлить' : 'Забустить'} за ${BOOST_PRICES[selectedBoostDays]} ⭐</button>
     `;
   }
 }
 function selectBoostDays(d){ selectedBoostDays = d; renderMoneySheet(); }
+
+async function startTrialBoost(){
+  const id = moneySpecId;
+  try {
+    const res = await apiRequest(`/api/me/specialists/${id}/trial-boost`, {method: 'POST'});
+    closeMoneySheet();
+    haptic('medium');
+    showToast('Буст на ' + res.days + ' дня включён ✓');
+    await refreshAfterPurchase();
+  } catch(e){
+    showToast(e.message || 'Не удалось включить буст');
+  }
+}
 
 // Открывает окно оплаты Telegram Stars и обрабатывает результат.
 // onPaid вызывается только если платёж реально прошёл (status === 'paid').
@@ -2251,17 +2887,28 @@ function openStarsInvoice(invoiceLink, onPaid){
     // status === 'cancelled' или 'pending' — ничего не показываем, пользователь сам передумал/платёж обрабатывается
   });
 }
+// После оплаты сервер узнаёт о ней от Telegram за пару секунд — берём с сервера
+// точные сроки PRO/буста, а не угадываем их на телефоне
+async function refreshAfterPurchase(){
+  await new Promise(r => setTimeout(r, 1500));
+  if(await loadMyListingsFromServer()){
+    if(currentScreen === 'cabinet') renderCabinetScreen();
+    if(currentScreen === 'list') renderCurrentList();
+  }
+}
 
 async function confirmPro(){
   const spec = ALL_SPECIALISTS[moneySpecId];
   try {
     const invoice = await apiRequest(`/api/specialists/${spec.id}/purchase-pro`, {method: 'POST'});
+    if(!invoice.ok) throw new Error('Telegram не создал счёт, попробуйте позже');
     closeMoneySheet();
     openStarsInvoice(invoice.result, () => {
       spec.pro = true;
       renderCabinetScreen();
-      renderCurrentList();
+      haptic('medium');
       showToast('PRO подключён ✓');
+      refreshAfterPurchase();
     });
   } catch(e){
     closeMoneySheet();
@@ -2277,17 +2924,43 @@ async function confirmBoost(){
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({days})
     });
+    if(!invoice.ok) throw new Error('Telegram не создал счёт, попробуйте позже');
     closeMoneySheet();
     openStarsInvoice(invoice.result, () => {
       spec.boosted = true;
       renderCabinetScreen();
-      renderCurrentList();
+      haptic('medium');
       showToast('Буст на ' + days + ' дней активирован ✓');
+      refreshAfterPurchase();
     });
   } catch(e){
     closeMoneySheet();
     showToast('Не удалось оформить буст: ' + e.message);
   }
+}
+
+/* ---------- тема ---------- */
+// Цвета приложения следуют теме Telegram (светлая/тёмная), включая шапку Telegram
+function applyTheme(){
+  let dark;
+  if(tg && tg.colorScheme) dark = tg.colorScheme === 'dark';
+  else { try { dark = window.matchMedia('(prefers-color-scheme: dark)').matches; } catch(e){ dark = false; } }
+  document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+  if(!tg) return;
+  const paper = getComputedStyle(document.documentElement).getPropertyValue('--paper').trim();
+  try { if(tg.setHeaderColor && (!tg.isVersionAtLeast || tg.isVersionAtLeast('6.9'))) tg.setHeaderColor(paper); } catch(e){}
+  try { if(tg.setBackgroundColor && (!tg.isVersionAtLeast || tg.isVersionAtLeast('6.9'))) tg.setBackgroundColor(paper); } catch(e){}
+  try { if(tg.setBottomBarColor && tg.isVersionAtLeast && tg.isVersionAtLeast('7.10')) tg.setBottomBarColor(paper); } catch(e){}
+}
+
+// Ссылка из сообщения бота: открыть «Мои услуги» (и сразу окно PRO, буста или статистики)
+async function openCabinetFromLink(id, action){
+  showScreen('cabinet');
+  await loadMyListingsFromServer();
+  renderCabinetScreen();
+  if(!MY_LISTING_IDS.has(id)) return;
+  if(action === 'pro' || action === 'boost') openMoneySheet(id, action);
+  else if(action === 'stats') openOwnStatsSheet(id);
 }
 
 (async function init(){
@@ -2301,10 +2974,19 @@ async function confirmBoost(){
     if(typeof tg.disableVerticalSwipes === 'function' && (!tg.isVersionAtLeast || tg.isVersionAtLeast('7.7'))){
       tg.disableVerticalSwipes();
     }
+    if(tg.BackButton && typeof tg.BackButton.onClick === 'function') tg.BackButton.onClick(goBack);
+    if(typeof tg.onEvent === 'function') tg.onEvent('themeChanged', applyTheme);
+  } else {
+    try { window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme); } catch(e){}
   }
+  applyTheme();
+  cacheDropOldVersions();
+  // Кнопка «Назад» Telegram показывается, когда есть куда возвращаться
+  new MutationObserver(updateBackButton).observe(document.querySelector('.shell'), {attributes: true, attributeFilter: ['class'], subtree: true});
 
-  const scroll = document.querySelector('.cat-scroll');
-  if(scroll) scroll.innerHTML = LOADER_HTML;
+  const grid = document.getElementById('cat-scroll');
+  grid.innerHTML = LOADER_HTML;
+  grid.style.display = 'block';
   // Запрос "приложение открыто" идёт параллельно с загрузкой каталога, но до
   // избранного: так сервер первым делом узнаёт, по какой ссылке пришёл новичок.
   const openPromise = trackAppOpen();
@@ -2312,30 +2994,37 @@ async function confirmBoost(){
   try {
     await loadPublicData();
     openInfo = await openPromise;
-    await loadFavoritesFromServer();
+    await Promise.all([loadFavoritesFromServer(), loadMyRecommendations()]);
   } catch(e) {
     console.error(e);
-    if(scroll) scroll.innerHTML = '<div style="padding:20px; color:var(--muted); font-size:13px;">Не удалось загрузить данные с сервера. Проверьте подключение и обновите страницу.</div>';
+    grid.innerHTML = '<div style="padding:20px; color:var(--muted); font-size:13px;">Не удалось загрузить данные с сервера. Проверьте подключение и обновите страницу.</div>';
     return;
   }
+  grid.style.display = '';
 
   // Восстанавливаем город, сохранённый в прошлый раз — если он всё ещё существует
   // в каталоге (город мог быть удалён/переименован в админке), иначе берём первый доступный.
   if(!CITIES.find(c => c.id === currentCity)){
     currentCity = (CITIES[0] || {}).id || 'sofia';
   }
-  document.getElementById('city-label').textContent = cityLabel().toUpperCase();
-
+  updateCityLabels();
   renderCategoryScroll();
+  renderHomeSections();
+  loadHomeSections();
+  // Свои анкеты — в фоне: нужны, чтобы не предлагать «Рекомендую» на своей анкете
+  if(tgInitData) loadMyListingsFromServer();
 
-  // Если приложение открыто по ссылке "поделиться анкетой" (startapp=spec_<id>),
-  // сразу открываем нужную анкету поверх главного экрана.
+  // Ссылки запуска: spec_<id> — "поделиться анкетой", cab_<id>[_pro|_boost|_stats] —
+  // кнопки в сообщениях бота (продлить PRO/буст, недельная статистика)
   const startParam = tg && tg.initDataUnsafe ? tg.initDataUnsafe.start_param : null;
+  const cab = startParam ? /^cab_(\d+)(?:_(pro|boost|stats))?$/.exec(startParam) : null;
   if(startParam && startParam.indexOf('spec_') === 0){
     const sharedId = Number(startParam.slice(5));
     if(sharedId){
       openProfileById(sharedId, 'home', 'share');
     }
+  } else if(cab && tgInitData){
+    openCabinetFromLink(Number(cab[1]), cab[2]);
   } else if(openInfo && openInfo.openSpecialistId){
     // Рекламная ссылка, настроенная в админке на конкретную анкету
     openProfileById(openInfo.openSpecialistId, 'home', 'ref');
